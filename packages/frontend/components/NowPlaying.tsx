@@ -10,7 +10,7 @@ import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { musicService } from '@/services/musicService';
 import { Album, Artist, Track } from '@musico/shared-types';
-import { Avatar } from '@/components/Avatar';
+import Avatar from '@/components/Avatar';
 
 /**
  * Now Playing Sidebar Component
@@ -280,19 +280,12 @@ export const NowPlaying: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     height: '100%',
+    overflowY: 'auto' as any,
     ...Platform.select({
-      web: {
-        position: 'sticky' as any,
-        top: 64,
-        height: 'calc(100vh - 64px)',
-      },
       default: {
         flex: 1,
       },
     }),
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255, 255, 255, 0.1)',
-    overflow: 'hidden',
   },
   wrapper: {
     flex: 1,

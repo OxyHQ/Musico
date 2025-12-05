@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, ScrollView, Text, Platform, Pressable, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { useOxy } from '@oxyhq/services';
+import { useRouter } from 'expo-router';
 import SEO from '@/components/SEO';
-import { MusicCard } from '@/components/MusicCard';
+import { MediaCard } from '@/components/MediaCard';
 import { useMediaQuery } from 'react-responsive';
 import { musicService } from '@/services/musicService';
 import { Track } from '@musico/shared-types';
@@ -16,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
  */
 const HomeScreen: React.FC = () => {
   const theme = useTheme();
+  const router = useRouter();
   const { isAuthenticated } = useOxy();
   const isMobile = useMediaQuery({ maxWidth: 767 });
   const isTablet = useMediaQuery({ minWidth: 768, maxWidth: 1023 });
@@ -162,7 +164,20 @@ const HomeScreen: React.FC = () => {
               <Pressable
                 key={item.id}
                 style={[styles.compactGridItem, { backgroundColor: theme.colors.backgroundSecondary }]}
-                onPress={() => playTrack(mockTrack)}
+                onPress={() => {
+                  // Navigate based on type
+                  if (item.type === 'album' && mockTrack.albumId) {
+                    router.push(`/album/${mockTrack.albumId}`);
+                  } else if (item.type === 'playlist') {
+                    router.push(`/playlist/${item.id}`);
+                  } else if (item.type === 'artist') {
+                    // Artist navigation handled gracefully (no page yet)
+                    // Could navigate to artist page in future: router.push(`/artist/${mockTrack.artistId}`);
+                  } else {
+                    // For mixes and other types, just play for now
+                    playTrack(mockTrack);
+                  }
+                }}
               >
                 <View
                   style={[
@@ -204,11 +219,17 @@ const HomeScreen: React.FC = () => {
                     key={item.id}
                     style={styles.gridItem}
                   >
-                    <MusicCard
+                    <MediaCard
                       title={item.title}
                       subtitle={item.subtitle}
                       type={item.type}
-                      onPress={() => playTrack(mockTrack)}
+                      onPress={() => {
+                        // Navigate to playlist page if it's a playlist
+                        if (item.type === 'playlist') {
+                          router.push(`/playlist/${item.id}`);
+                        }
+                      }}
+                      onPlayPress={() => playTrack(mockTrack)}
                     />
                   </View>
                 );
@@ -231,11 +252,17 @@ const HomeScreen: React.FC = () => {
                     key={item.id}
                     style={styles.gridItem}
                   >
-                    <MusicCard
+                    <MediaCard
                       title={item.title}
                       subtitle={item.subtitle}
                       type={item.type}
-                      onPress={() => playTrack(mockTrack)}
+                      onPress={() => {
+                        // Navigate to playlist page if it's a playlist
+                        if (item.type === 'playlist') {
+                          router.push(`/playlist/${item.id}`);
+                        }
+                      }}
+                      onPlayPress={() => playTrack(mockTrack)}
                     />
                   </View>
                 );
@@ -260,13 +287,18 @@ const HomeScreen: React.FC = () => {
                   key={track.id}
                   style={styles.gridItem}
                 >
-                  <Pressable onPress={() => playTrack(track)}>
-                    <MusicCard
-                      title={track.title}
-                      subtitle={track.artistName}
-                      type="track"
-                    />
-                  </Pressable>
+                  <MediaCard
+                    title={track.title}
+                    subtitle={track.artistName}
+                    type="track"
+                    onPress={() => {
+                      // Navigate to album page if albumId exists
+                      if (track.albumId) {
+                        router.push(`/album/${track.albumId}`);
+                      }
+                    }}
+                    onPlayPress={() => playTrack(track)}
+                  />
                 </View>
               ))}
             </View>

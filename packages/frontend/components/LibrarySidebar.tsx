@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, Pressable, TextInput, Platform, ViewStyle } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Pressable, TextInput, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
-import { useOxy } from '@oxyhq/services';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { useMediaQuery } from 'react-responsive';
-
 /**
  * Library Sidebar Component
  * Spotify-like "Your Library" sidebar with filters and library items
@@ -14,10 +12,8 @@ export const LibrarySidebar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
-  const { user, isAuthenticated } = useOxy();
   const isMobile = useMediaQuery({ maxWidth: 767 });
-  const isTablet = useMediaQuery({ minWidth: 768, maxWidth: 1023 });
-  
+
   const [isExpanded, setIsExpanded] = useState(!isMobile);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'Playlists' | 'Artists' | 'Albums' | 'Podcasts'>('Playlists');
@@ -28,35 +24,36 @@ export const LibrarySidebar: React.FC = () => {
     return null;
   }
 
-  const sidebarWidth = isExpanded ? 330 : 72;
-
   return (
-    <View 
+    <View
       style={[
-        styles.container, 
-        { 
-          backgroundColor: theme.colors.background,
-          width: sidebarWidth,
-        }
+        styles.container,
+        !isExpanded && styles.containerCollapsed,
       ]}
     >
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
+      <View style={[
+        styles.header,
+        !isExpanded && styles.headerCollapsed
+      ]}>
+        <View style={[
+          styles.headerTop,
+          !isExpanded && styles.headerTopCollapsed
+        ]}>
           {isExpanded && (
             <Pressable style={styles.createButton}>
               <Ionicons name="add" size={24} color={theme.colors.text} />
               <Text style={[styles.createText, { color: theme.colors.text }]}>Create</Text>
             </Pressable>
           )}
-          <Pressable 
+          <Pressable
             onPress={() => setIsExpanded(!isExpanded)}
             style={styles.expandButton}
           >
-            <Ionicons 
-              name={isExpanded ? 'chevron-back' : 'chevron-forward'} 
-              size={24} 
-              color={theme.colors.text} 
+            <Octicons
+              name={isExpanded ? 'sidebar-collapse' : 'sidebar-expand'}
+              size={20}
+              color={theme.colors.text}
             />
           </Pressable>
         </View>
@@ -66,10 +63,10 @@ export const LibrarySidebar: React.FC = () => {
       </View>
 
       {isExpanded && (
-        <>
+        <View style={styles.expandedContent}>
           {/* Filters */}
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.filtersContainer}
             contentContainerStyle={styles.filtersContent}
@@ -81,17 +78,17 @@ export const LibrarySidebar: React.FC = () => {
                 onPress={() => setActiveFilter(filter)}
                 style={[
                   styles.filterButton,
-                  activeFilter === filter && { 
+                  activeFilter === filter && {
                     backgroundColor: theme.colors.primary + '20',
                     borderColor: theme.colors.primary,
                   }
                 ]}
               >
-                <Text 
+                <Text
                   style={[
-                    styles.filterText, 
-                    { 
-                      color: activeFilter === filter ? theme.colors.primary : theme.colors.text 
+                    styles.filterText,
+                    {
+                      color: activeFilter === filter ? theme.colors.primary : theme.colors.text
                     }
                   ]}
                 >
@@ -120,11 +117,11 @@ export const LibrarySidebar: React.FC = () => {
           </View>
 
           {/* Library Items */}
-          <ScrollView style={styles.libraryList} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.libraryList} showsVerticalScrollIndicator={false} contentContainerStyle={styles.libraryListContent}>
             {/* Liked Songs */}
-            <Pressable 
-              style={[styles.libraryItem, pathname === '/library/liked' && styles.activeItem]}
-              onPress={() => router.push('/library/liked')}
+            <Pressable
+              style={[styles.libraryItem, pathname === '/library' && styles.activeItem]}
+              onPress={() => router.push('/library')}
             >
               <View style={[styles.likedIcon, { backgroundColor: '#450af5' }]}>
                 <Ionicons name="heart" size={24} color="#FFFFFF" />
@@ -147,19 +144,17 @@ export const LibrarySidebar: React.FC = () => {
               </Text>
             </View>
           </ScrollView>
-        </>
+        </View>
       )}
 
       {/* Collapsed view - just icons */}
       {!isExpanded && (
         <View style={styles.collapsedView}>
-          <Pressable 
-            style={styles.collapsedItem}
-            onPress={() => router.push('/library/liked')}
+          <Pressable
+            style={[styles.likedIconSmall, { backgroundColor: '#450af5' }]}
+            onPress={() => router.push('/library')}
           >
-            <View style={[styles.likedIconSmall, { backgroundColor: '#450af5' }]}>
-              <Ionicons name="heart" size={20} color="#FFFFFF" />
-            </View>
+            <Ionicons name="heart" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
       )}
@@ -170,29 +165,43 @@ export const LibrarySidebar: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     height: '100%',
+    overflowY: 'auto' as any,
+    padding: 12,
+    flexDirection: 'column',
+    gap: 12,
     ...Platform.select({
-      web: {
-        position: 'sticky' as any,
-        top: 64, // Below top bar
-        height: 'calc(100vh - 64px)',
-        overflowY: 'auto' as any,
-      },
       default: {
         flex: 1,
       },
     }),
-    borderRightWidth: 1,
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  containerCollapsed: {
+    alignItems: 'center',
   },
   header: {
-    padding: 12,
-    paddingBottom: 8,
+    width: '100%',
+    gap: 8,
+    padding: 0,
+    margin: 0,
+  },
+  headerCollapsed: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    width: '100%',
+  },
+  expandedContent: {
+    flex: 1,
+    gap: 8,
+    width: '100%',
+  },
+  headerTopCollapsed: {
+    justifyContent: 'center',
+    width: '100%',
   },
   createButton: {
     flexDirection: 'row',
@@ -213,19 +222,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 16,
+    margin: 0,
+    padding: 0,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
   },
   filtersContainer: {
-    marginHorizontal: 8,
-    marginBottom: 8,
     maxHeight: 32,
+    padding: 0,
   },
   filtersContent: {
-    paddingHorizontal: 8,
-    gap: 6,
+    padding: 0,
+    gap: 8,
     alignItems: 'center' as any,
   },
   filterButton: {
@@ -242,14 +252,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 14,
-    whiteSpace: 'nowrap' as any,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 12,
-    marginBottom: 8,
+    width: '100%',
+    padding: 0,
   },
   searchInputContainer: {
     flex: 1,
@@ -277,15 +286,19 @@ const styles = StyleSheet.create({
   },
   libraryList: {
     flex: 1,
-    paddingHorizontal: 8,
+    padding: 0,
+  },
+  libraryListContent: {
+    gap: 8,
+    padding: 0,
   },
   libraryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    padding: 5,
+    gap: 12,
+    padding: 8,
     borderRadius: 4,
-    marginBottom: 4,
+    width: '100%',
   },
   activeItem: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -304,6 +317,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 0,
+    margin: 0,
   },
   itemContent: {
     flex: 1,
@@ -317,11 +332,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   collapsedView: {
-    padding: 8,
+    flex: 1,
     alignItems: 'center',
-  },
-  collapsedItem: {
-    marginBottom: 8,
+    justifyContent: 'flex-start',
+    gap: 8,
+    padding: 0,
+    margin: 0,
   },
   emptyState: {
     padding: 32,

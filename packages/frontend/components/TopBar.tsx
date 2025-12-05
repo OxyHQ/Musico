@@ -7,7 +7,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import { Logo } from './Logo';
 import { useMediaQuery } from 'react-responsive';
-
 /**
  * Top Navigation Bar Component
  * Spotify-like top bar with logo, navigation, search, and user controls
@@ -34,7 +33,7 @@ export const TopBar: React.FC = () => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View style={styles.container}>
       {/* Left Section: Logo */}
       <View style={styles.leftSection}>
         {!isMobile && (
@@ -125,8 +124,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'transparent',
     ...Platform.select({
       web: {
         position: 'sticky' as any,

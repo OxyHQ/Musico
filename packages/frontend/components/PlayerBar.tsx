@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useUIStore } from '@/stores/uiStore';
 import { Image } from 'expo-image';
+import { Panel } from './Panel';
 
 /**
  * Bottom Player Bar Component
@@ -55,11 +56,12 @@ export const PlayerBar: React.FC = () => {
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <View 
+    <Panel 
+      rounded="top" 
+      radius={16} 
       style={[
         styles.container,
         { 
-          backgroundColor: theme.colors.background,
           height: playerBarHeight,
           paddingBottom: isMobile ? insets.bottom : 0,
         }
@@ -200,15 +202,13 @@ export const PlayerBar: React.FC = () => {
           </View>
         )}
       </View>
-    </View>
+    </Panel>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
     ...Platform.select({
       web: {
         position: 'fixed' as any,

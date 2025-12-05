@@ -365,13 +365,14 @@ const optionalAuth = (req: express.Request, res: express.Response, next: express
 
 // --- API ROUTES ---
 // Public API routes (no authentication required)
+// Note: Viewing artists, songs, and albums is public. Streaming (audio) requires authentication.
+// Using optionalAuth to allow requests with or without tokens - backend handles gracefully
 const publicApiRouter = express.Router();
-publicApiRouter.use("/tracks", tracksRoutes);
-publicApiRouter.use("/albums", albumsRoutes);
-publicApiRouter.use("/artists", artistsRoutes);
-publicApiRouter.use("/playlists", playlistsRoutes); // GET /playlists/:id is public
-publicApiRouter.use("/search", searchRoutes);
-publicApiRouter.use("/audio", audioRoutes);
+publicApiRouter.use("/tracks", optionalAuth, tracksRoutes); // GET routes - public viewing
+publicApiRouter.use("/albums", optionalAuth, albumsRoutes); // GET routes - public viewing
+publicApiRouter.use("/artists", optionalAuth, artistsRoutes); // GET routes - public viewing
+publicApiRouter.use("/playlists", optionalAuth, playlistsRoutes); // GET /playlists/:id is public
+publicApiRouter.use("/search", optionalAuth, searchRoutes);
 
 // Authenticated API routes (require authentication)
 const authenticatedApiRouter = express.Router();
@@ -380,6 +381,7 @@ authenticatedApiRouter.use("/profile", profileSettingsRoutes);
 authenticatedApiRouter.use("/artists", artistsRoutes); // POST routes (follow/unfollow)
 authenticatedApiRouter.use("/playlists", playlistsRoutes); // POST routes (create)
 authenticatedApiRouter.use("/library", libraryRoutes);
+authenticatedApiRouter.use("/audio", audioRoutes); // Audio streaming requires authentication
 
 // Mount public and authenticated API routers
 app.use("/api", publicApiRouter);

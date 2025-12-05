@@ -15,6 +15,7 @@ import { TopBar } from "@/components/TopBar";
 import { LibrarySidebar } from "@/components/LibrarySidebar";
 import { NowPlaying } from "@/components/NowPlaying";
 import { ThemedView } from "@/components/ThemedView";
+import { Panel } from "@/components/Panel";
 import { AppProviders } from '@/components/providers/AppProviders';
 import { QUERY_CLIENT_CONFIG } from '@/components/providers/constants';
 import { Provider as PortalProvider, Outlet as PortalOutlet } from '@/components/Portal';
@@ -59,11 +60,39 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
   const isDesktop = useIsDesktop();
   const keyboardVisible = useKeyboardVisibility();
 
+  // On mobile, no gaps or padding
+  const gapSize = isScreenNotMobile ? 12 : 0;
+  const outerPadding = isScreenNotMobile ? 12 : 0;
+
+  // Calculate panel height for web - all panels should have same height
+  // On desktop, player bar is in normal flow, so we subtract it from height
+  // On mobile, player bar is absolute/fixed, so it doesn't affect height calculation
+  const panelHeight = isScreenNotMobile
+    ? `calc(100vh - 64px - ${gapSize}px - 72px - ${outerPadding}px)` as any // topbar + gap + playerBar + outerPadding
+    : `calc(100vh - 64px - 72px)` as any; // topbar + playerBar (absolute positioned)
+
   const styles = useMemo(() => StyleSheet.create({
     outerContainer: {
       flex: 1,
       width: '100%',
-      backgroundColor: theme.colors.background,
+      backgroundColor: '#000000', // Black app background
+      ...Platform.select({
+        web: outerPadding > 0 ? {
+          paddingLeft: outerPadding,
+          paddingRight: outerPadding,
+          paddingBottom: outerPadding,
+        } : {},
+      }),
+    },
+    contentWrapper: {
+      flex: 1,
+      ...Platform.select({
+        web: isScreenNotMobile ? {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: gapSize, // Gap between panels wrapper and player bar
+        } : {},
+      }),
     },
     topBarContainer: {
       ...Platform.select({
@@ -74,40 +103,58 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
         },
       }),
     },
-    contentContainer: {
+    panelsWrapper: {
       flex: 1,
       flexDirection: isScreenNotMobile ? 'row' : 'column',
-      overflow: 'hidden',
-    },
-    leftSidebarContainer: {
       ...Platform.select({
         web: {
-          height: 'calc(100vh - 64px - 72px)', // Viewport height minus top bar and player bar
+          gap: gapSize, // Consistent gap between panels
+        },
+      }),
+    },
+    leftSidebarContainer: {
+      flexShrink: 0,
+      flexGrow: 0,
+      ...Platform.select({
+        web: {
+          height: panelHeight,
         },
       }),
     },
     mainContentWrapper: {
       flex: 1,
       minWidth: 0, // Allow flexbox to shrink below content size
-      backgroundColor: theme.colors.background,
       ...Platform.select({
         web: {
           overflowY: 'auto' as any,
-          height: 'calc(100vh - 64px - 72px)', // Viewport height minus top bar and player bar
+          height: panelHeight,
         },
       }),
     },
     rightSidebarContainer: {
+      flexShrink: 0,
+      flexGrow: 0,
       ...Platform.select({
         web: {
-          height: 'calc(100vh - 64px - 72px)',
+          height: panelHeight,
         },
       }),
     },
     playerBarContainer: {
       ...Platform.select({
-        web: {
+        web: isScreenNotMobile ? {
+          // Desktop: Normal flow - gap is handled by contentWrapper
+        } : {
+          // Mobile: Fixed position
           position: 'fixed' as any,
+          bottom: outerPadding,
+          left: outerPadding,
+          right: outerPadding,
+          zIndex: 1000,
+        },
+        default: {
+          // Mobile: Absolute position
+          position: 'absolute',
           bottom: 0,
           left: 0,
           right: 0,
@@ -115,7 +162,7 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
         },
       }),
     },
-  }), [isScreenNotMobile, isDesktop, theme.colors.background]);
+  }), [isScreenNotMobile, isDesktop, theme.colors.background, gapSize, outerPadding, panelHeight]);
 
   const handleWheel = useCallback((event: any) => {
     forwardWheelEvent(event);
@@ -128,39 +175,42 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
 
   return (
     <View style={styles.outerContainer} {...containerProps}>
-      {/* Top Navigation Bar */}
+      {/* Top Navigation Bar - No gap needed since it has no background */}
       <View style={styles.topBarContainer}>
         <TopBar />
       </View>
 
-      {/* Main Content Area with Sidebars */}
-      <View style={styles.contentContainer}>
-        {/* Left Sidebar - Your Library */}
-        {isScreenNotMobile && (
-          <View style={styles.leftSidebarContainer}>
-            <LibrarySidebar />
-          </View>
-        )}
+      {/* Content Wrapper - Panels and Player with gap */}
+      <View style={styles.contentWrapper}>
+        {/* Panels Wrapper - All panels with same height and rounded corners */}
+        <View style={styles.panelsWrapper}>
+          {/* Left Sidebar - Your Library */}
+          {isScreenNotMobile && (
+            <Panel rounded="all" radius={12} style={styles.leftSidebarContainer} overflow={false}>
+              <LibrarySidebar />
+            </Panel>
+          )}
 
-        {/* Main Content */}
-        <ThemedView style={styles.mainContentWrapper}>
-          <Slot />
-        </ThemedView>
+          {/* Main Content */}
+          <Panel rounded="all" radius={12} style={styles.mainContentWrapper}>
+            <Slot />
+          </Panel>
 
-        {/* Right Sidebar - Artist/Album Details (Desktop only) */}
-        {isDesktop && (
-          <View style={styles.rightSidebarContainer}>
-            <NowPlaying />
+          {/* Right Sidebar - Artist/Album Details (Desktop only) */}
+          {isDesktop && (
+            <Panel rounded="all" radius={12} style={styles.rightSidebarContainer}>
+              <NowPlaying />
+            </Panel>
+          )}
+        </View>
+
+        {/* Bottom Player Bar */}
+        {!keyboardVisible && (
+          <View style={styles.playerBarContainer}>
+            <PlayerBar />
           </View>
         )}
       </View>
-
-      {/* Bottom Player Bar */}
-      {!keyboardVisible && (
-        <View style={styles.playerBarContainer}>
-          <PlayerBar />
-        </View>
-      )}
     </View>
   );
 });

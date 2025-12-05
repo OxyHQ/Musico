@@ -25,7 +25,7 @@ return {
         slug: "musico",
         version: VERSION,
       orientation: 'portrait',
-      icon: './assets/images/mention-icon.png',
+      icon: './assets/images/app-icon.png',
       scheme: 'musico',
       userInterfaceStyle: 'automatic',
       newArchEnabled: true,
@@ -39,9 +39,9 @@ return {
       },
         android: {
             adaptiveIcon: {
-                foregroundImage: "./assets/images/mention-icon_foreground.png",
-                backgroundImage: "./assets/images/mention-icon_background.png",
-                monochromeImage: "./assets/images/mention-icon_monochrome.png"
+                foregroundImage: "./assets/images/app-icon_foreground.png",
+                backgroundImage: "./assets/images/app-icon_background.png",
+                monochromeImage: "./assets/images/app-icon_monochrome.png"
             },
             permissions: [
                 "android.permission.CAMERA",
@@ -90,16 +90,16 @@ return {
         web: {
             bundler: "metro",
             output: "static",
-            favicon: "./assets/images/favicon.png",
+            favicon: "./assets/images/favicon.ico",
             manifest: "./public/manifest.json",
             meta: {
                 viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
-                themeColor: "#4F46E5",
+                themeColor: "#72184D",
                 appleMobileWebAppCapable: "yes",
                 appleMobileWebAppStatusBarStyle: "default",
                 appleMobileWebAppTitle: "Musico",
                 applicationName: "Musico",
-                msapplicationTileColor: "#4F46E5",
+                msapplicationTileColor: "#72184D",
                 msapplicationConfig: "/browserconfig.xml"
             },
             build: {

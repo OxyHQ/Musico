@@ -166,8 +166,8 @@ export function SideBar() {
                     styles.container,
                     { backgroundColor: theme.colors.background },
                     {
-                        width: isExpanded ? 240 : 60,
-                        padding: 6,
+                        width: isExpanded ? 240 : 48,
+                        minWidth: 0,
                         ...(Platform.select({
                             web: {
                                 transition: 'width 220ms cubic-bezier(0.2, 0, 0, 1)',
@@ -285,6 +285,7 @@ export function SideBar() {
 const styles = StyleSheet.create({
     container: {
         padding: 12,
+        minWidth: 0,
         ...(Platform.select({
             web: {
                 position: 'sticky' as any,
@@ -302,11 +303,11 @@ const styles = StyleSheet.create({
     inner: {
         flex: 1,
         width: '100%',
-        justifyContent: 'flex-start',
-        alignItems: 'flex-start',
+        flexDirection: 'column',
+        gap: 12,
     },
     headerSection: {
-        marginBottom: 16,
+        width: '100%',
     },
     content: {
         justifyContent: 'flex-start',
@@ -328,7 +329,6 @@ const styles = StyleSheet.create({
     authButtonsContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: 12,
         gap: 8,
     },
     signUpButton: {
@@ -357,23 +357,20 @@ const styles = StyleSheet.create({
     },
     navigationSection: {
         flex: 1,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'flex-start',
         width: '100%',
-        gap: 2,
-        paddingLeft: 0,
-        paddingRight: 0,
+        gap: 8,
+        padding: 0,
     },
     addPropertyButton: {
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 100,
         display: 'flex',
-        alignSelf: 'flex-start',
-        marginTop: 4,
+        alignSelf: 'stretch',
     },
     addPropertyButtonContainer: {
-        minHeight: 60,
         width: '100%',
         justifyContent: 'center',
         alignItems: 'center',
@@ -390,7 +387,6 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
         alignItems: 'flex-start',
         width: '100%',
-        marginTop: 'auto',
     },
     title: {
         fontSize: 24,

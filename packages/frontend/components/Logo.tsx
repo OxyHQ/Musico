@@ -29,7 +29,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     width: 'auto',
-    marginBottom: 10,
+    minWidth: 0,
+    margin: 0,
+    padding: 0,
     borderRadius: 1000,
     ...Platform.select({
       web: {
@@ -38,7 +40,8 @@ const styles = StyleSheet.create({
     }),
   },
   logo: {
-    padding: 10,
+    padding: 0,
+    margin: 0,
   },
   logoSvg: {
   },

@@ -3,27 +3,39 @@ import { StyleSheet, View, Text, Image, Pressable, Platform, ViewStyle } from 'r
 import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 
-interface MusicCardProps {
+interface MediaCardProps {
   title: string;
   subtitle?: string;
   imageUri?: string;
   type?: 'playlist' | 'album' | 'artist' | 'podcast' | 'track';
   onPress?: () => void;
+  onPlayPress?: () => void;
+  shape?: 'square' | 'circle';
 }
 
 /**
- * Music Card Component
+ * Media Card Component
  * Spotify-like card for displaying playlists, albums, artists
  */
-export const MusicCard: React.FC<MusicCardProps> = ({ 
+export const MediaCard: React.FC<MediaCardProps> = ({ 
   title, 
   subtitle, 
   imageUri, 
   type = 'playlist',
-  onPress 
+  onPress,
+  onPlayPress,
+  shape
 }) => {
   const theme = useTheme();
   const [isHovered, setIsHovered] = React.useState(false);
+  const [isPlayButtonHovered, setIsPlayButtonHovered] = React.useState(false);
+
+  // Auto-detect shape for artist type, or use provided shape
+  const cardShape = shape || (type === 'artist' ? 'circle' : 'square');
+  const borderRadius = cardShape === 'circle' ? 999 : 8;
+  
+  // Show play button if card is hovered OR play button itself is hovered
+  const showPlayButton = (isHovered || isPlayButtonHovered) && onPlayPress;
 
   const getIcon = () => {
     switch (type) {
@@ -36,14 +48,26 @@ export const MusicCard: React.FC<MusicCardProps> = ({
     }
   };
 
+  const handlePlayPress = (e: any) => {
+    e?.stopPropagation?.();
+    onPlayPress?.();
+  };
+  
+  const handleCardHoverOut = () => {
+    // Only set hover to false if play button is not hovered
+    if (!isPlayButtonHovered) {
+      setIsHovered(false);
+    }
+  };
+
   return (
     <Pressable
       onPress={onPress}
       onHoverIn={() => setIsHovered(true)}
-      onHoverOut={() => setIsHovered(false)}
+      onHoverOut={handleCardHoverOut}
       style={[
         styles.container,
-        isHovered && { backgroundColor: theme.colors.backgroundSecondary },
+        (isHovered || isPlayButtonHovered) && { backgroundColor: theme.colors.backgroundSecondary },
         ...Platform.select({
           web: [{ cursor: 'pointer' as any }],
           default: [],
@@ -51,25 +75,36 @@ export const MusicCard: React.FC<MusicCardProps> = ({
       ]}
     >
       {/* Image/Icon */}
-      <View style={[styles.imageContainer, { backgroundColor: theme.colors.backgroundSecondary }]}>
+      <View style={[
+        styles.imageContainer, 
+        { 
+          backgroundColor: theme.colors.backgroundSecondary,
+          borderRadius,
+        }
+      ]}>
         {imageUri ? (
           <Image 
             source={{ uri: imageUri }} 
-            style={styles.image}
+            style={[styles.image, { borderRadius }]}
             resizeMode="cover"
           />
         ) : (
-          <View style={styles.iconContainer}>
+          <View style={[styles.iconContainer, { borderRadius }]}>
             <Ionicons name={getIcon()} size={48} color={theme.colors.textSecondary} />
           </View>
         )}
         {/* Play button overlay on hover */}
-        {isHovered && (
-          <View style={styles.playOverlay}>
+        {showPlayButton && (
+          <Pressable 
+            style={styles.playOverlay}
+            onPress={handlePlayPress}
+            onHoverIn={() => setIsPlayButtonHovered(true)}
+            onHoverOut={() => setIsPlayButtonHovered(false)}
+          >
             <View style={[styles.playButton, { backgroundColor: theme.colors.primary }]}>
               <Ionicons name="play" size={24} color="#FFFFFF" />
             </View>
-          </View>
+          </Pressable>
         )}
       </View>
 
@@ -108,7 +143,6 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 6,
     position: 'relative',
@@ -137,6 +171,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
   },
   playButton: {
     width: 56,

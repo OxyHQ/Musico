@@ -7,7 +7,7 @@ import { Album, Track } from '@musico/shared-types';
 import { Ionicons } from '@expo/vector-icons';
 import { usePlayerStore } from '@/stores/playerStore';
 import SEO from '@/components/SEO';
-import { Avatar } from '@/components/Avatar';
+import Avatar from '@/components/Avatar';
 
 /**
  * Album Screen

@@ -1,41 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { Album } from '@musico/shared-types';
-
-/**
- * Mock albums data
- */
-const mockAlbums: Album[] = [
-  {
-    id: 'album1',
-    title: 'After Hours',
-    artistId: 'artist1',
-    artistName: 'The Weeknd',
-    releaseDate: '2020-03-20',
-    coverArt: 'https://example.com/cover/after-hours.jpg',
-    genre: ['Pop', 'R&B'],
-    totalTracks: 14,
-    totalDuration: 3600,
-    type: 'album',
-    isExplicit: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'album2',
-    title: 'F*CK LOVE 3',
-    artistId: 'artist2',
-    artistName: 'The Kid LAROI',
-    releaseDate: '2021-07-23',
-    coverArt: 'https://example.com/cover/fck-love.jpg',
-    genre: ['Hip-Hop', 'Pop'],
-    totalTracks: 12,
-    totalDuration: 2400,
-    type: 'album',
-    isExplicit: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+import { AlbumModel } from '../models/Album';
+import { TrackModel } from '../models/Track';
+import { toApiFormat, toApiFormatArray } from '../utils/musicHelpers';
+import { isDatabaseConnected } from '../utils/database';
 
 /**
  * GET /api/albums
@@ -43,17 +10,28 @@ const mockAlbums: Album[] = [
  */
 export const getAlbums = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({ error: 'Database not available' });
+    }
+
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = parseInt(req.query.offset as string) || 0;
 
-    const albums = mockAlbums.slice(offset, offset + limit);
+    const [albums, total] = await Promise.all([
+      AlbumModel.find()
+        .sort({ releaseDate: -1, createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .lean(),
+      AlbumModel.countDocuments(),
+    ]);
+
+    const formattedAlbums = toApiFormatArray(albums);
 
     res.json({
-      albums,
-      total: mockAlbums.length,
-      limit,
-      offset,
-      hasMore: offset + limit < mockAlbums.length,
+      albums: formattedAlbums,
+      total,
+      hasMore: offset + limit < total,
     });
   } catch (error) {
     next(error);
@@ -66,14 +44,19 @@ export const getAlbums = async (req: Request, res: Response, next: NextFunction)
  */
 export const getAlbumById = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({ error: 'Database not available' });
+    }
+
     const { id } = req.params;
-    const album = mockAlbums.find(a => a.id === id);
+    const album = await AlbumModel.findById(id).lean();
 
     if (!album) {
       return res.status(404).json({ error: 'Album not found' });
     }
 
-    res.json(album);
+    const formattedAlbum = toApiFormat(album);
+    res.json(formattedAlbum);
   } catch (error) {
     next(error);
   }
@@ -85,11 +68,27 @@ export const getAlbumById = async (req: Request, res: Response, next: NextFuncti
  */
 export const getAlbumTracks = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({ error: 'Database not available' });
+    }
+
     const { id } = req.params;
-    // Mock - return empty tracks array for now
-    // In real implementation, fetch tracks where albumId === id
+    
+    // Verify album exists
+    const album = await AlbumModel.findById(id).lean();
+    if (!album) {
+      return res.status(404).json({ error: 'Album not found' });
+    }
+
+    // Fetch tracks for this album, sorted by track number
+    const tracks = await TrackModel.find({ albumId: id, isAvailable: true })
+      .sort({ discNumber: 1, trackNumber: 1 })
+      .lean();
+
+    const formattedTracks = toApiFormatArray(tracks);
+
     res.json({
-      tracks: [],
+      tracks: formattedTracks,
       albumId: id,
     });
   } catch (error) {
