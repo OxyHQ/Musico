@@ -25,6 +25,7 @@ export interface Album extends Timestamps {
   upc?: string; // Universal Product Code
   popularity?: number; // 0-100
   isExplicit: boolean;
+  dominantColor?: string; // Hex color extracted from cover art (e.g., "#FF5733")
 }
 
 /**

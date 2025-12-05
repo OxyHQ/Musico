@@ -15,7 +15,7 @@ export const TopBar: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useTheme();
-  const { user, isAuthenticated, oxyServices } = useOxy();
+  const { user, isAuthenticated, oxyServices, showBottomSheet } = useOxy();
   const isMobile = useMediaQuery({ maxWidth: 767 });
   
   const avatarUri = user?.avatar ? oxyServices.getFileDownloadUrl(user.avatar as string, 'thumb') : undefined;
@@ -36,11 +36,11 @@ export const TopBar: React.FC = () => {
     <View style={styles.container}>
       {/* Left Section: Logo */}
       <View style={styles.leftSection}>
-        {!isMobile && (
-          <Pressable onPress={handleHome} style={styles.logoContainer}>
+        <Pressable onPress={handleHome} style={styles.logoContainer}>
+          <View pointerEvents="none">
             <Logo />
-          </Pressable>
-        )}
+          </View>
+        </Pressable>
       </View>
 
       {/* Center Section: Home & Search Grouped (Centered) */}
@@ -107,7 +107,7 @@ export const TopBar: React.FC = () => {
         ) : (
           <Pressable 
             style={[styles.loginButton, { backgroundColor: theme.colors.primary }]}
-            onPress={() => router.push('/auth')}
+            onPress={() => showBottomSheet?.('SignIn')}
           >
             <Text style={[styles.loginText, { color: '#FFFFFF' }]}>Log in</Text>
           </Pressable>
@@ -137,9 +137,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    zIndex: 1,
   },
   logoContainer: {
-    marginRight: 8,
+    zIndex: 2,
+    padding: 4,
   },
   centerSection: {
     position: 'absolute',
@@ -148,6 +150,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    zIndex: 0,
+    pointerEvents: 'box-none',
   },
   centerGroup: {
     flexDirection: 'row',
@@ -180,6 +184,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    zIndex: 1,
   },
   iconButton: {
     width: 40,

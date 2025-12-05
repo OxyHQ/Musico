@@ -11,6 +11,8 @@ interface MediaCardProps {
   onPress?: () => void;
   onPlayPress?: () => void;
   shape?: 'square' | 'circle';
+  onHoverIn?: () => void;
+  onHoverOut?: () => void;
 }
 
 /**
@@ -24,7 +26,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   type = 'playlist',
   onPress,
   onPlayPress,
-  shape
+  shape,
+  onHoverIn,
+  onHoverOut,
 }) => {
   const theme = useTheme();
   const [isHovered, setIsHovered] = React.useState(false);
@@ -63,8 +67,14 @@ export const MediaCard: React.FC<MediaCardProps> = ({
   return (
     <Pressable
       onPress={onPress}
-      onHoverIn={() => setIsHovered(true)}
-      onHoverOut={handleCardHoverOut}
+      onHoverIn={() => {
+        setIsHovered(true);
+        onHoverIn?.();
+      }}
+      onHoverOut={() => {
+        handleCardHoverOut();
+        onHoverOut?.();
+      }}
       style={[
         styles.container,
         (isHovered || isPlayButtonHovered) && { backgroundColor: theme.colors.backgroundSecondary },

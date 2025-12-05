@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { TrackModel } from '../models/Track';
 import { toApiFormat, toApiFormatArray } from '../utils/musicHelpers';
 import { isDatabaseConnected } from '../utils/database';
@@ -48,6 +49,12 @@ export const getTrackById = async (req: Request, res: Response, next: NextFuncti
     }
 
     const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
     const track = await TrackModel.findById(id).lean();
 
     if (!track) {

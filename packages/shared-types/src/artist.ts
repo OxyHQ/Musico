@@ -27,6 +27,7 @@ export interface Artist extends Timestamps {
   genres?: string[];
   verified?: boolean;
   popularity?: number; // 0-100
+  dominantColor?: string; // Hex color extracted from image (e.g., "#FF5733")
   stats: ArtistStats;
 }
 

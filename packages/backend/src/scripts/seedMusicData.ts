@@ -195,8 +195,9 @@ async function seedMusicData() {
           duration,
           trackNumber,
           discNumber: 1,
+          // URL will be updated after saving to use MongoDB ID
           audioSource: {
-            url: `/api/audio/track-${trackIndex}.mp3`,
+            url: `/api/audio/temp-${trackIndex}`, // Temporary, will be updated
             format: 'mp3',
             bitrate: 320,
             duration,
@@ -214,6 +215,11 @@ async function seedMusicData() {
         });
 
         const savedTrack = await track.save();
+        
+        // Update audioSource URL to use MongoDB ID
+        savedTrack.audioSource.url = `/api/audio/${savedTrack._id}`;
+        await savedTrack.save();
+        
         tracks.push(savedTrack);
         trackIndex++;
       }

@@ -128,7 +128,6 @@ const styles = StyleSheet.create({
         marginLeft: 'auto',
     },
     content: {
-        paddingHorizontal: 16,
         paddingTop: 24,
     },
     message: {

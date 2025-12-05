@@ -11,6 +11,8 @@ import { AppState, Platform, StyleSheet, View, type AppStateStatus } from "react
 // Components
 import AppSplashScreen from '@/components/AppSplashScreen';
 import { PlayerBar } from "@/components/PlayerBar";
+import { MobilePlayerBar } from "@/components/MobilePlayerBar";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { TopBar } from "@/components/TopBar";
 import { LibrarySidebar } from "@/components/LibrarySidebar";
 import { NowPlaying } from "@/components/NowPlaying";
@@ -26,6 +28,7 @@ import { useKeyboardVisibility } from "@/hooks/useKeyboardVisibility";
 import { useIsScreenNotMobile, useIsDesktop } from "@/hooks/useOptimizedMediaQuery";
 import { useTheme } from '@/hooks/useTheme';
 import { LayoutScrollProvider, useLayoutScroll } from '@/context/LayoutScrollContext';
+import { usePlayerStore } from '@/stores/playerStore';
 
 // Services & Utils
 import { oxyServices } from '@/lib/oxyServices';
@@ -59,40 +62,29 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
   const { forwardWheelEvent } = useLayoutScroll();
   const isDesktop = useIsDesktop();
   const keyboardVisible = useKeyboardVisibility();
+  const { currentTrack } = usePlayerStore();
 
   // On mobile, no gaps or padding
   const gapSize = isScreenNotMobile ? 12 : 0;
   const outerPadding = isScreenNotMobile ? 12 : 0;
 
   // Calculate panel height for web - all panels should have same height
-  // On desktop, player bar is in normal flow, so we subtract it from height
+  // On desktop, player bar is outside panels wrapper in normal flow, so we subtract it from height
+  // Player bar uses padding-based sizing (~92px: 4px progress + 16px top + 56px content + 16px bottom)
+  // Padding is on panelsWrapper (bottom only, no top padding), so we subtract outerPadding
   // On mobile, player bar is absolute/fixed, so it doesn't affect height calculation
   const panelHeight = isScreenNotMobile
-    ? `calc(100vh - 64px - ${gapSize}px - 72px - ${outerPadding}px)` as any // topbar + gap + playerBar + outerPadding
-    : `calc(100vh - 64px - 72px)` as any; // topbar + playerBar (absolute positioned)
+    ? `calc(100vh - 64px - 92px - ${outerPadding}px)` as any // topbar + playerBar (~92px) + padding (bottom only)
+    : `calc(100vh - 64px - 92px)` as any; // topbar + playerBar (~92px, absolute positioned)
 
   const styles = useMemo(() => StyleSheet.create({
     outerContainer: {
       flex: 1,
       width: '100%',
       backgroundColor: '#000000', // Black app background
-      ...Platform.select({
-        web: outerPadding > 0 ? {
-          paddingLeft: outerPadding,
-          paddingRight: outerPadding,
-          paddingBottom: outerPadding,
-        } : {},
-      }),
     },
     contentWrapper: {
       flex: 1,
-      ...Platform.select({
-        web: isScreenNotMobile ? {
-          display: 'flex',
-          flexDirection: 'column',
-          gap: gapSize, // Gap between panels wrapper and player bar
-        } : {},
-      }),
     },
     topBarContainer: {
       ...Platform.select({
@@ -107,9 +99,12 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
       flex: 1,
       flexDirection: isScreenNotMobile ? 'row' : 'column',
       ...Platform.select({
-        web: {
+        web: isScreenNotMobile ? {
+          paddingLeft: outerPadding,
+          paddingRight: outerPadding,
+          paddingBottom: outerPadding,
           gap: gapSize, // Consistent gap between panels
-        },
+        } : {},
       }),
     },
     leftSidebarContainer: {
@@ -141,26 +136,7 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
       }),
     },
     playerBarContainer: {
-      ...Platform.select({
-        web: isScreenNotMobile ? {
-          // Desktop: Normal flow - gap is handled by contentWrapper
-        } : {
-          // Mobile: Fixed position
-          position: 'fixed' as any,
-          bottom: outerPadding,
-          left: outerPadding,
-          right: outerPadding,
-          zIndex: 1000,
-        },
-        default: {
-          // Mobile: Absolute position
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-        },
-      }),
+      // Desktop only - mobile player bar handles its own positioning
     },
   }), [isScreenNotMobile, isDesktop, theme.colors.background, gapSize, outerPadding, panelHeight]);
 
@@ -175,14 +151,14 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
 
   return (
     <View style={styles.outerContainer} {...containerProps}>
-      {/* Top Navigation Bar - No gap needed since it has no background */}
+      {/* Top Navigation Bar - Outside panels wrapper */}
       <View style={styles.topBarContainer}>
         <TopBar />
       </View>
 
-      {/* Content Wrapper - Panels and Player with gap */}
+      {/* Content Wrapper - Only panels */}
       <View style={styles.contentWrapper}>
-        {/* Panels Wrapper - All panels with same height and rounded corners */}
+        {/* Panels Wrapper - All panels with same height and rounded corners, padding applied here */}
         <View style={styles.panelsWrapper}>
           {/* Left Sidebar - Your Library */}
           {isScreenNotMobile && (
@@ -203,14 +179,24 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
             </Panel>
           )}
         </View>
-
-        {/* Bottom Player Bar */}
-        {!keyboardVisible && (
-          <View style={styles.playerBarContainer}>
-            <PlayerBar />
-          </View>
-        )}
       </View>
+
+      {/* Bottom Player Bar - Outside panels wrapper */}
+      {!keyboardVisible && (
+        <>
+          {isScreenNotMobile ? (
+            <View style={styles.playerBarContainer}>
+              <PlayerBar />
+            </View>
+          ) : (
+            // Mobile: Only show player bar when there's a track playing
+            currentTrack && <MobilePlayerBar />
+          )}
+        </>
+      )}
+
+      {/* Mobile Bottom Navigation - Only on mobile */}
+      {!isScreenNotMobile && !keyboardVisible && <MobileBottomNav />}
     </View>
   );
 });

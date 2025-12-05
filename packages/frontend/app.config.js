@@ -90,7 +90,7 @@ return {
         web: {
             bundler: "metro",
             output: "static",
-            favicon: "./assets/images/favicon.ico",
+            favicon: "./assets/images/favicon.png",
             manifest: "./public/manifest.json",
             meta: {
                 viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",

@@ -69,6 +69,13 @@ NODE_ENV=development
 # External Services
 OPENAI_API_KEY=your_openai_api_key
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+
+# AWS S3 Configuration (for audio file storage)
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=musico-audio
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+S3_AUDIO_PREFIX=audio
 ```
 
 ### Running the API

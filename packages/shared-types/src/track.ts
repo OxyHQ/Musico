@@ -6,9 +6,11 @@ import { Timestamps } from './common';
 
 /**
  * Audio source for a track
+ * URL format: /api/audio/{trackId} (uses MongoDB ObjectId)
+ * Files are stored in S3 with structure: audio/{artistId}/{albumId}/{trackId}.{format}
  */
 export interface AudioSource {
-  url: string;
+  url: string; // Format: /api/audio/{trackId}
   format: 'mp3' | 'flac' | 'ogg' | 'm4a' | 'wav';
   bitrate?: number; // in kbps
   duration?: number; // in seconds (can be calculated from file if not provided)

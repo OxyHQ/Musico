@@ -1,42 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View, Text, Pressable, Platform } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
-import { Ionicons } from '@expo/vector-icons';
-import { useMediaQuery } from 'react-responsive';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useUIStore } from '@/stores/uiStore';
 import { Image } from 'expo-image';
-import { Panel } from './Panel';
+import { Slider } from './Slider';
 
 /**
- * Bottom Player Bar Component
- * Spotify-like bottom player bar showing currently playing track
+ * Desktop Bottom Player Bar Component
+ * Full-featured player bar for desktop with all controls
  */
 export const PlayerBar: React.FC = () => {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
-  const isMobile = useMediaQuery({ maxWidth: 767 });
-  const [isExpanded, setIsExpanded] = useState(false);
   const { toggleNowPlaying } = useUIStore();
-  
+
   const {
     currentTrack,
     isPlaying,
     isLoading,
     currentTime,
     duration,
-    playTrack,
+    volume,
     pause,
     resume,
     seek,
+    setVolume,
   } = usePlayerStore();
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handlePlayPause = async () => {
     if (isPlaying) {
@@ -50,56 +40,55 @@ export const PlayerBar: React.FC = () => {
     await seek(newPosition);
   };
 
-  const playerBarHeight = isMobile ? 60 + (Platform.OS === 'web' ? 0 : insets.bottom) : 72;
-
   // Always show player bar, even when no track is playing
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Uniform spacing constant - used for both padding and gaps
+  const SPACING = 12;
+
+  // Desktop: Normal flow container style
+  const containerStyle = useMemo(() => ({
+    ...styles.container,
+    backgroundColor: theme.colors.background,
+  }), [theme.colors.background]);
+
   return (
-    <Panel 
-      rounded="top" 
-      radius={16} 
-      style={[
-        styles.container,
-        { 
-          height: playerBarHeight,
-          paddingBottom: isMobile ? insets.bottom : 0,
-        }
-      ]}
-    >
+    <View style={containerStyle}>
       {/* Progress Bar */}
       <Pressable
-        style={[styles.progressBarContainer, { backgroundColor: theme.colors.border }]}
+        style={[styles.progressBarContainer, { backgroundColor: 'rgba(255, 255, 255, 0.3)' }]}
         onPress={(e) => {
           if (Platform.OS === 'web') {
             const rect = (e.target as any)?.getBoundingClientRect();
             if (rect) {
-              const x = e.nativeEvent.clientX - rect.left;
-              const newPosition = (x / rect.width) * duration;
-              handleSeek(newPosition);
+              const clientX = (e.nativeEvent as any).clientX;
+              if (clientX !== undefined) {
+                const x = clientX - rect.left;
+                const newPosition = (x / rect.width) * duration;
+                handleSeek(newPosition);
+              }
             }
           }
         }}
       >
-        <View 
+        <View
           style={[
             styles.progressBar,
-            { 
-              backgroundColor: theme.colors.primary,
+            {
+              backgroundColor: "#FFFFFF",
               width: `${progressPercent}%`,
             }
-          ]} 
+          ]}
         />
       </Pressable>
 
       {/* Main Player Content */}
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingHorizontal: SPACING, paddingVertical: SPACING, gap: SPACING }]}>
         {/* Left: Track Info */}
-        <View style={styles.trackInfo}>
+        <View style={[styles.trackInfo, { gap: SPACING }]}>
           <Pressable
             onPress={() => {
-              const isDesktop = !isMobile;
-              if (isDesktop && currentTrack) {
+              if (currentTrack) {
                 toggleNowPlaying();
               }
             }}
@@ -113,45 +102,41 @@ export const PlayerBar: React.FC = () => {
               />
             ) : (
               <View style={[styles.albumArtPlaceholder, { backgroundColor: theme.colors.backgroundSecondary }]}>
-                <Ionicons name="musical-notes" size={24} color={theme.colors.textSecondary} />
+                <MaterialCommunityIcons name="music" size={24} color={theme.colors.textSecondary} />
               </View>
             )}
           </Pressable>
           <View style={styles.trackDetails}>
-            <Text 
-              style={[styles.trackTitle, { color: theme.colors.text }]} 
+            <Text
+              style={[styles.trackTitle, { color: theme.colors.text }]}
               numberOfLines={1}
             >
               {currentTrack?.title || (isLoading ? 'Loading...' : 'No track selected')}
             </Text>
-            <Text 
-              style={[styles.trackArtist, { color: theme.colors.textSecondary }]} 
+            <Text
+              style={[styles.trackArtist, { color: theme.colors.textSecondary }]}
               numberOfLines={1}
             >
               {currentTrack?.artistName || (isLoading ? '' : 'Choose a track to play')}
             </Text>
           </View>
-          {!isMobile && (
-            <Pressable style={styles.likeButton}>
-              <Ionicons name="heart-outline" size={20} color={theme.colors.textSecondary} />
-            </Pressable>
-          )}
+          <Pressable style={styles.likeButton}>
+            <MaterialCommunityIcons name="heart-outline" size={20} color={theme.colors.textSecondary} />
+          </Pressable>
         </View>
 
         {/* Center: Playback Controls */}
-        <View style={styles.playbackControls}>
-          {!isMobile && (
-            <Pressable style={styles.controlButton}>
-              <Ionicons name="shuffle-outline" size={20} color={theme.colors.textSecondary} />
-            </Pressable>
-          )}
+        <View style={[styles.playbackControls, { gap: SPACING }]}>
           <Pressable style={styles.controlButton}>
-            <Ionicons name="play-skip-back" size={24} color={theme.colors.text} />
+            <MaterialCommunityIcons name="shuffle" size={20} color={theme.colors.textSecondary} />
           </Pressable>
-          <Pressable 
+          <Pressable style={styles.controlButton}>
+            <MaterialCommunityIcons name="skip-previous" size={24} color={theme.colors.text} />
+          </Pressable>
+          <Pressable
             style={[
-              styles.playButton, 
-              { 
+              styles.playButton,
+              {
                 backgroundColor: currentTrack ? theme.colors.primary : theme.colors.backgroundSecondary,
                 opacity: currentTrack ? 1 : 0.5,
               }
@@ -160,71 +145,59 @@ export const PlayerBar: React.FC = () => {
             disabled={isLoading || !currentTrack}
           >
             {isLoading ? (
-              <Ionicons name="hourglass-outline" size={24} color="#FFFFFF" />
+              <MaterialCommunityIcons name="timer-sand" size={24} color="#FFFFFF" />
             ) : (
-              <Ionicons 
-                name={isPlaying ? 'pause' : 'play'} 
-                size={24} 
+              <MaterialCommunityIcons
+                name={isPlaying ? 'pause' : 'play'}
+                size={24}
                 color={currentTrack ? "#FFFFFF" : theme.colors.textSecondary}
               />
             )}
           </Pressable>
           <Pressable style={styles.controlButton}>
-            <Ionicons name="play-skip-forward" size={24} color={theme.colors.text} />
+            <MaterialCommunityIcons name="skip-next" size={24} color={theme.colors.text} />
           </Pressable>
-          {!isMobile && (
-            <Pressable style={styles.controlButton}>
-              <Ionicons name="repeat-outline" size={20} color={theme.colors.textSecondary} />
-            </Pressable>
-          )}
+          <Pressable style={styles.controlButton}>
+            <MaterialCommunityIcons name="repeat" size={20} color={theme.colors.textSecondary} />
+          </Pressable>
         </View>
 
         {/* Right: Volume & Queue Controls */}
-        {!isMobile && (
-          <View style={styles.rightControls}>
-            <Pressable style={styles.controlButton}>
-              <Ionicons name="list-outline" size={20} color={theme.colors.textSecondary} />
-            </Pressable>
-            <View style={styles.volumeContainer}>
-              <Ionicons name="volume-low" size={20} color={theme.colors.textSecondary} />
-              <View style={[styles.volumeSlider, { backgroundColor: theme.colors.backgroundSecondary }]}>
-                <View 
-                  style={[
-                    styles.volumeProgress,
-                    { backgroundColor: theme.colors.primary, width: '70%' }
-                  ]} 
-                />
-              </View>
+        <View style={[styles.rightControls, { gap: SPACING }]}>
+          <Pressable style={styles.controlButton}>
+            <MaterialCommunityIcons name="playlist-music" size={20} color={theme.colors.textSecondary} />
+          </Pressable>
+          <View style={[styles.volumeContainer, { gap: SPACING }]}>
+            <MaterialCommunityIcons
+              name={volume === 0 ? 'volume-off' : volume < 0.5 ? 'volume-low' : 'volume-high'}
+              size={20}
+              color={theme.colors.textSecondary}
+            />
+            <View style={styles.volumeSliderWrapper}>
+              <Slider
+                value={volume}
+                onValueChange={setVolume}
+                minimumValue={0}
+                maximumValue={1}
+                step={0.01}
+                disabled={false}
+                showValue={false}
+              />
             </View>
-            <Pressable style={styles.controlButton}>
-              <Ionicons name="expand-outline" size={20} color={theme.colors.textSecondary} />
-            </Pressable>
           </View>
-        )}
+          <Pressable style={styles.controlButton}>
+            <MaterialCommunityIcons name="fullscreen" size={20} color={theme.colors.textSecondary} />
+          </Pressable>
+        </View>
       </View>
-    </Panel>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    ...Platform.select({
-      web: {
-        position: 'fixed' as any,
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1000,
-      },
-      default: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1000,
-      },
-    }),
+    // Positioning is now handled dynamically in the component based on isMobile
   },
   progressBarContainer: {
     height: 4,
@@ -247,15 +220,11 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    gap: 16,
   },
   trackInfo: {
     flex: 0.3,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     minWidth: 0,
   },
   albumArtPressable: {
@@ -301,7 +270,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
   },
   controlButton: {
     width: 32,
@@ -315,31 +283,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 8,
+    marginHorizontal: 0,
   },
   rightControls: {
     flex: 0.3,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 8,
   },
   volumeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
     flex: 1,
     maxWidth: 120,
   },
-  volumeSlider: {
+  volumeSliderWrapper: {
     flex: 1,
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  volumeProgress: {
-    height: '100%',
-    borderRadius: 2,
+    height: 40,
+    justifyContent: 'center',
   },
 });
 

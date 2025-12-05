@@ -1,15 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, ScrollView, Text, Platform, Pressable, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { StyleSheet, View, ScrollView, Text, Platform, Pressable, ActivityIndicator, Animated } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks/useTheme';
 import { useOxy } from '@oxyhq/services';
 import { useRouter } from 'expo-router';
 import SEO from '@/components/SEO';
 import { MediaCard } from '@/components/MediaCard';
-import { useMediaQuery } from 'react-responsive';
 import { musicService } from '@/services/musicService';
-import { Track } from '@musico/shared-types';
+import { Track, Album, Artist, Playlist } from '@musico/shared-types';
 import { usePlayerStore } from '@/stores/playerStore';
 import { Ionicons } from '@expo/vector-icons';
+
+/**
+ * Quick access item type - can be album, artist, or playlist
+ */
+type QuickAccessItem =
+  | { type: 'album'; data: Album; shape: 'square' }
+  | { type: 'artist'; data: Artist; shape: 'circle' }
+  | { type: 'playlist'; data: Playlist; shape: 'square' };
 
 /**
  * Musico Home Screen
@@ -19,29 +27,114 @@ const HomeScreen: React.FC = () => {
   const theme = useTheme();
   const router = useRouter();
   const { isAuthenticated } = useOxy();
-  const isMobile = useMediaQuery({ maxWidth: 767 });
-  const isTablet = useMediaQuery({ minWidth: 768, maxWidth: 1023 });
   const [activeFilter, setActiveFilter] = useState<'All' | 'Music' | 'Podcasts' | 'Audiobooks'>('All');
+  const { playTrack } = usePlayerStore();
+
+  // State for tracks
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { playTrack, currentTrack } = usePlayerStore();
+  const [tracksLoading, setTracksLoading] = useState(true);
+
+  // State for quick access (albums, artists, playlists)
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [userPlaylists, setUserPlaylists] = useState<Playlist[]>([]);
+  const [quickAccessLoading, setQuickAccessLoading] = useState(true);
+
+  // State for recently played and made for you
+  const [recentlyPlayed, setRecentlyPlayed] = useState<Playlist[]>([]);
+  const [madeForYou, setMadeForYou] = useState<Playlist[]>([]);
+  const [recentlyPlayedAlbums, setRecentlyPlayedAlbums] = useState<Album[]>([]);
+  const [madeForYouAlbums, setMadeForYouAlbums] = useState<Album[]>([]);
+  const [sectionsLoading, setSectionsLoading] = useState(true);
+
+  // State for hover gradient color
+  const [hoveredItemColor, setHoveredItemColor] = useState<string | null>(null);
+  const gradientColorAnim = useRef(new Animated.Value(0)).current;
 
   // Fetch tracks on mount
   useEffect(() => {
     const fetchTracks = async () => {
       try {
-        setLoading(true);
+        setTracksLoading(true);
         const response = await musicService.getTracks({ limit: 20 });
         setTracks(response.tracks);
       } catch (error) {
         console.error('[HomeScreen] Error fetching tracks:', error);
       } finally {
-        setLoading(false);
+        setTracksLoading(false);
       }
     };
 
     fetchTracks();
   }, []);
+
+  // Fetch quick access data (albums, artists, playlists)
+  useEffect(() => {
+    const fetchQuickAccess = async () => {
+      try {
+        setQuickAccessLoading(true);
+
+        const [albumsResponse, artistsResponse] = await Promise.all([
+          musicService.getAlbums({ limit: 4 }),
+          musicService.getArtists({ limit: 4 }),
+        ]);
+
+        setAlbums(albumsResponse.albums);
+        setArtists(artistsResponse.artists);
+
+        // Only fetch user playlists if authenticated
+        if (isAuthenticated) {
+          try {
+            const playlistsResponse = await musicService.getUserPlaylists();
+            setUserPlaylists(playlistsResponse.playlists);
+          } catch (error) {
+            console.error('[HomeScreen] Error fetching user playlists:', error);
+          }
+        }
+      } catch (error) {
+        console.error('[HomeScreen] Error fetching quick access data:', error);
+      } finally {
+        setQuickAccessLoading(false);
+      }
+    };
+
+    fetchQuickAccess();
+  }, [isAuthenticated]);
+
+  // Fetch recently played and made for you sections
+  useEffect(() => {
+    const fetchSections = async () => {
+      try {
+        setSectionsLoading(true);
+
+        if (isAuthenticated) {
+          // Fetch user playlists for authenticated users
+          const playlistsResponse = await musicService.getUserPlaylists();
+          const allPlaylists = playlistsResponse.playlists;
+
+          // Split playlists: first 4 for recently played, rest for made for you
+          setRecentlyPlayed(allPlaylists.slice(0, 4));
+          setMadeForYou(allPlaylists.slice(4, 8));
+          setRecentlyPlayedAlbums([]);
+          setMadeForYouAlbums([]);
+        } else {
+          // For unauthenticated users, use popular albums
+          const albumsResponse = await musicService.getAlbums({ limit: 8 });
+          // Split albums: first 4 for recently played, rest for made for you
+          setRecentlyPlayed([]);
+          setMadeForYou([]);
+          setRecentlyPlayedAlbums(albumsResponse.albums.slice(0, 4));
+          setMadeForYouAlbums(albumsResponse.albums.slice(4, 8));
+        }
+      } catch (error) {
+        console.error('[HomeScreen] Error fetching sections:', error);
+      } finally {
+        setSectionsLoading(false);
+      }
+    };
+
+    fetchSections();
+  }, [isAuthenticated]);
 
   // Get greeting based on time
   const getGreeting = () => {
@@ -51,55 +144,69 @@ const HomeScreen: React.FC = () => {
     return 'Good evening';
   };
 
-  // Helper to create a mock track from any item
-  const createMockTrack = (item: { id: string; title: string; subtitle?: string }): Track => ({
-    id: item.id,
-    title: item.title,
-    artistId: `artist-${item.id}`,
-    artistName: item.subtitle || 'Various Artists',
-    albumId: `album-${item.id}`,
-    albumName: item.title,
-    duration: 180,
-    trackNumber: 1,
-    audioSource: {
-      url: '/api/audio/test-song.mp3',
-      format: 'mp3',
-      bitrate: 320,
-      duration: 180,
-    },
-    coverArt: null,
-    isExplicit: false,
-    isAvailable: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  });
+  // Helper function to convert hex color to RGB
+  const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16),
+        }
+      : null;
+  };
 
-  // Mock data - will be replaced with actual API data
-  // 8-item compact grid for recently played
-  const quickAccess = [
-    { id: '1', title: 'Benvinguts Al Club', type: 'album' as const, shape: 'square' as const },
-    { id: '2', title: 'Reggaeton Mix', type: 'mix' as const, shape: 'circle' as const },
-    { id: '3', title: 'ROSALÍA', type: 'artist' as const, shape: 'circle' as const, isPlaying: true },
-    { id: '4', title: 'Beéle Mix', type: 'mix' as const, shape: 'circle' as const },
-    { id: '5', title: 'ROSALÍA Mix', type: 'mix' as const, shape: 'circle' as const },
-    { id: '6', title: 'MALAMENTE', type: 'album' as const, shape: 'square' as const },
-    { id: '7', title: 'Drake', type: 'artist' as const, shape: 'circle' as const },
-    { id: '8', title: 'LUX', type: 'album' as const, shape: 'square' as const },
-  ];
+  // Convert hex to rgba string for LinearGradient
+  const hexToRgba = (hex: string, alpha: number = 0.2): string => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return `rgba(128, 128, 128, ${alpha})`; // Fallback gray
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+  };
 
-  const recentlyPlayed = [
-    { id: '1', title: 'Liked Songs', subtitle: 'Playlist', type: 'playlist' as const },
-    { id: '2', title: 'Daily Mix 1', subtitle: 'Made for you', type: 'playlist' as const },
-    { id: '3', title: 'Discover Weekly', subtitle: 'Made for you', type: 'playlist' as const },
-    { id: '4', title: 'Release Radar', subtitle: 'New releases', type: 'playlist' as const },
-  ];
+  // Handle hover in - set the color
+  const handleHoverIn = (color: string | null | undefined) => {
+    if (color) {
+      setHoveredItemColor(color);
+    }
+  };
 
-  const madeForYou = [
-    { id: '5', title: 'Time Capsule', subtitle: 'Made for you', type: 'playlist' as const },
-    { id: '6', title: 'On Repeat', subtitle: 'Songs you love', type: 'playlist' as const },
-    { id: '7', title: 'Chill Mix', subtitle: 'Made for you', type: 'playlist' as const },
-    { id: '8', title: 'Rock Classics', subtitle: 'Hits from the 80s', type: 'playlist' as const },
-  ];
+  // Handle hover out - reset to default
+  const handleHoverOut = () => {
+    setHoveredItemColor(null);
+  };
+
+  // Get the current gradient top color
+  const getGradientTopColor = (): string => {
+    if (hoveredItemColor) {
+      // Use hovered color with opacity for top 20%
+      return hexToRgba(hoveredItemColor, 0.2);
+    }
+    // Default to theme primary with opacity
+    return theme.colors.primary + '33';
+  };
+
+  // Compute quick access items from fetched data (mix of albums, artists, playlists)
+  const quickAccess = useMemo<QuickAccessItem[]>(() => {
+    const items: QuickAccessItem[] = [];
+
+    // Add albums (up to 4)
+    albums.slice(0, 4).forEach(album => {
+      items.push({ type: 'album', data: album, shape: 'square' });
+    });
+
+    // Add artists (up to 2)
+    artists.slice(0, 2).forEach(artist => {
+      items.push({ type: 'artist', data: artist, shape: 'circle' });
+    });
+
+    // Add playlists (up to 2, or fill remaining slots)
+    const remainingSlots = 8 - items.length;
+    userPlaylists.slice(0, remainingSlots).forEach(playlist => {
+      items.push({ type: 'playlist', data: playlist, shape: 'square' });
+    });
+
+    return items.slice(0, 8);
+  }, [albums, artists, userPlaylists]);
 
   return (
     <>
@@ -107,209 +214,285 @@ const HomeScreen: React.FC = () => {
         title="Musico - Music Streaming"
         description="Discover and play your favorite music"
       />
-      <ScrollView
-        style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
-        contentContainerStyle={[
-          styles.contentContainer,
-          { paddingBottom: 100 } // Space for bottom player bar
-        ]}
-        showsVerticalScrollIndicator={false}
+      <LinearGradient
+        colors={[getGradientTopColor(), theme.colors.background]}
+        locations={[0, 0.2]}
+        style={styles.gradientContainer}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]}>
-            {getGreeting()}
-          </Text>
-        </View>
+        <ScrollView
+          style={[styles.scrollView, { backgroundColor: 'transparent' }]}
+          contentContainerStyle={[
+            styles.contentContainer,
+            { paddingBottom: 100 } // Space for bottom player bar
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: theme.colors.text }]}>
+              {getGreeting()}
+            </Text>
+          </View>
 
-        {/* Filter Chips */}
-        <View style={styles.filtersContainer}>
-          {(['All', 'Music', 'Podcasts', 'Audiobooks'] as const).map((filter) => (
-            <Pressable
-              key={filter}
-              onPress={() => setActiveFilter(filter)}
-              style={[
-                styles.filterButton,
-                {
-                  backgroundColor: activeFilter === filter
-                    ? theme.colors.primary + '20'
-                    : theme.colors.backgroundSecondary,
-                  borderColor: activeFilter === filter
-                    ? theme.colors.primary
-                    : 'transparent',
-                }
-              ]}
-            >
-              <Text
+          {/* Filter Chips */}
+          <View style={styles.filtersContainer}>
+            {(['All', 'Music', 'Podcasts', 'Audiobooks'] as const).map((filter) => (
+              <Pressable
+                key={filter}
+                onPress={() => setActiveFilter(filter)}
                 style={[
-                  styles.filterText,
+                  styles.filterButton,
                   {
-                    color: activeFilter === filter
+                    backgroundColor: activeFilter === filter
+                      ? theme.colors.primary + '20'
+                      : theme.colors.backgroundSecondary,
+                    borderColor: activeFilter === filter
                       ? theme.colors.primary
-                      : theme.colors.text
+                      : 'transparent',
                   }
                 ]}
               >
-                {filter}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        {/* 8-Item Compact Grid (2 columns) - Just image/icon and text */}
-        <View style={styles.compactGrid}>
-          {quickAccess.map((item) => {
-            const mockTrack = createMockTrack(item);
-            return (
-              <Pressable
-                key={item.id}
-                style={[styles.compactGridItem, { backgroundColor: theme.colors.backgroundSecondary }]}
-                onPress={() => {
-                  // Navigate based on type
-                  if (item.type === 'album' && mockTrack.albumId) {
-                    router.push(`/album/${mockTrack.albumId}`);
-                  } else if (item.type === 'playlist') {
-                    router.push(`/playlist/${item.id}`);
-                  } else if (item.type === 'artist') {
-                    // Artist navigation handled gracefully (no page yet)
-                    // Could navigate to artist page in future: router.push(`/artist/${mockTrack.artistId}`);
-                  } else {
-                    // For mixes and other types, just play for now
-                    playTrack(mockTrack);
-                  }
-                }}
-              >
-                <View
+                <Text
                   style={[
-                    styles.compactImageContainer,
+                    styles.filterText,
                     {
-                      backgroundColor: theme.colors.background,
-                      borderRadius: item.shape === 'circle' ? 999 : 12,
+                      color: activeFilter === filter
+                        ? theme.colors.primary
+                        : theme.colors.text
                     }
                   ]}
                 >
-                  <Ionicons
-                    name={item.type === 'artist' ? 'person' : item.type === 'mix' ? 'layers' : 'musical-notes'}
-                    size={24}
-                    color={theme.colors.textSecondary}
-                  />
-                </View>
-                <Text
-                  style={[styles.compactTitle, { color: theme.colors.text }]}
-                  numberOfLines={1}
-                >
-                  {item.title}
+                  {filter}
                 </Text>
               </Pressable>
-            );
-          })}
-        </View>
+            ))}
+          </View>
 
-        {/* Recently Played Section */}
-        {recentlyPlayed.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Recently played
-            </Text>
-            <View style={styles.grid}>
-              {recentlyPlayed.map((item) => {
-                const mockTrack = createMockTrack(item);
-                return (
-                  <View
-                    key={item.id}
-                    style={styles.gridItem}
-                  >
-                    <MediaCard
-                      title={item.title}
-                      subtitle={item.subtitle}
-                      type={item.type}
-                      onPress={() => {
-                        // Navigate to playlist page if it's a playlist
-                        if (item.type === 'playlist') {
-                          router.push(`/playlist/${item.id}`);
-                        }
-                      }}
-                      onPlayPress={() => playTrack(mockTrack)}
-                    />
-                  </View>
-                );
-              })}
+          {/* 8-Item Compact Grid (2 columns) - Just image/icon and text */}
+          {quickAccessLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
             </View>
-          </View>
-        )}
+          ) : quickAccess.length > 0 && (
+            <View style={styles.compactGrid}>
+              {quickAccess.map((item) => {
+                const title = item.type === 'album'
+                  ? item.data.title
+                  : item.type === 'artist'
+                    ? item.data.name
+                    : item.data.name;
+                const id = item.data.id;
 
-        {/* Made for You Section */}
-        {madeForYou.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Made for you
-            </Text>
-            <View style={styles.grid}>
-              {madeForYou.map((item) => {
-                const mockTrack = createMockTrack(item);
+                const dominantColor = item.data.dominantColor;
+                
                 return (
-                  <View
-                    key={item.id}
-                    style={styles.gridItem}
-                  >
-                    <MediaCard
-                      title={item.title}
-                      subtitle={item.subtitle}
-                      type={item.type}
-                      onPress={() => {
-                        // Navigate to playlist page if it's a playlist
-                        if (item.type === 'playlist') {
-                          router.push(`/playlist/${item.id}`);
-                        }
-                      }}
-                      onPlayPress={() => playTrack(mockTrack)}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Tracks Section */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
-          </View>
-        ) : tracks.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-              Tracks
-            </Text>
-            <View style={styles.grid}>
-              {tracks.map((track) => (
-                <View
-                  key={track.id}
-                  style={styles.gridItem}
-                >
-                  <MediaCard
-                    title={track.title}
-                    subtitle={track.artistName}
-                    type="track"
+                  <Pressable
+                    key={`${item.type}-${id}`}
+                    style={[styles.compactGridItem, { backgroundColor: theme.colors.backgroundSecondary }]}
                     onPress={() => {
-                      // Navigate to album page if albumId exists
-                      if (track.albumId) {
-                        router.push(`/album/${track.albumId}`);
+                      // Navigate based on type
+                      if (item.type === 'album') {
+                        router.push(`/album/${id}` as any);
+                      } else if (item.type === 'playlist') {
+                        router.push(`/playlist/${id}` as any);
+                      } else if (item.type === 'artist') {
+                        // Artist navigation handled gracefully (no page yet)
+                        // Could navigate to artist page in future: router.push(`/artist/${id}`);
                       }
                     }}
-                    onPlayPress={() => playTrack(track)}
-                  />
-                </View>
-              ))}
+                    onHoverIn={() => handleHoverIn(dominantColor)}
+                    onHoverOut={handleHoverOut}
+                  >
+                    <View
+                      style={[
+                        styles.compactImageContainer,
+                        {
+                          backgroundColor: theme.colors.background,
+                          borderRadius: item.shape === 'circle' ? 999 : 12,
+                        }
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.type === 'artist' ? 'person' : 'musical-notes'}
+                        size={24}
+                        color={theme.colors.textSecondary}
+                      />
+                    </View>
+                    <Text
+                      style={[styles.compactTitle, { color: theme.colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {title}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-          </View>
-        )}
-      </ScrollView>
+          )}
+
+          {/* Recently Played Section */}
+          {sectionsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            </View>
+          ) : (recentlyPlayed.length > 0 || recentlyPlayedAlbums.length > 0) && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Recently played
+              </Text>
+              <View style={styles.grid}>
+                {recentlyPlayed.map((playlist) => (
+                  <View
+                    key={playlist.id}
+                    style={styles.gridItem}
+                  >
+                    <MediaCard
+                      title={playlist.name}
+                      subtitle={playlist.description || 'Playlist'}
+                      type="playlist"
+                      onPress={() => {
+                        router.push(`/playlist/${playlist.id}` as any);
+                      }}
+                      onPlayPress={() => {
+                        router.push(`/playlist/${playlist.id}` as any);
+                      }}
+                      onHoverIn={() => handleHoverIn(playlist.dominantColor)}
+                      onHoverOut={handleHoverOut}
+                    />
+                  </View>
+                ))}
+                {recentlyPlayedAlbums.map((album) => (
+                  <View
+                    key={album.id}
+                    style={styles.gridItem}
+                  >
+                    <MediaCard
+                      title={album.title}
+                      subtitle={album.artistName}
+                      type="album"
+                      imageUri={album.coverArt}
+                      onPress={() => {
+                        router.push(`/album/${album.id}` as any);
+                      }}
+                      onPlayPress={async () => {
+                        // Fetch album tracks and play first track
+                        try {
+                          const tracksData = await musicService.getAlbumTracks(album.id);
+                          if (tracksData.tracks.length > 0) {
+                            playTrack(tracksData.tracks[0]);
+                          }
+                        } catch (error) {
+                          console.error('[HomeScreen] Error playing album:', error);
+                        }
+                      }}
+                      onHoverIn={() => handleHoverIn(album.dominantColor)}
+                      onHoverOut={handleHoverOut}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Made for You Section */}
+          {sectionsLoading ? null : (madeForYou.length > 0 || madeForYouAlbums.length > 0) && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Made for you
+              </Text>
+              <View style={styles.grid}>
+                {madeForYou.map((playlist) => (
+                  <View
+                    key={playlist.id}
+                    style={styles.gridItem}
+                  >
+                    <MediaCard
+                      title={playlist.name}
+                      subtitle={playlist.description || 'Playlist'}
+                      type="playlist"
+                      onPress={() => {
+                        router.push(`/playlist/${playlist.id}` as any);
+                      }}
+                      onPlayPress={() => {
+                        router.push(`/playlist/${playlist.id}` as any);
+                      }}
+                    />
+                  </View>
+                ))}
+                {madeForYouAlbums.map((album) => (
+                  <View
+                    key={album.id}
+                    style={styles.gridItem}
+                  >
+                    <MediaCard
+                      title={album.title}
+                      subtitle={album.artistName}
+                      type="album"
+                      imageUri={album.coverArt}
+                      onPress={() => {
+                        router.push(`/album/${album.id}` as any);
+                      }}
+                      onPlayPress={async () => {
+                        // Fetch album tracks and play first track
+                        try {
+                          const tracksData = await musicService.getAlbumTracks(album.id);
+                          if (tracksData.tracks.length > 0) {
+                            playTrack(tracksData.tracks[0]);
+                          }
+                        } catch (error) {
+                          console.error('[HomeScreen] Error playing album:', error);
+                        }
+                      }}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Tracks Section */}
+          {tracksLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+          ) : tracks.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Tracks
+              </Text>
+              <View style={styles.grid}>
+                {tracks.map((track) => (
+                  <View
+                    key={track.id}
+                    style={styles.gridItem}
+                  >
+                    <MediaCard
+                      title={track.title}
+                      subtitle={track.artistName}
+                      type="track"
+                      onPress={() => {
+                        // Navigate to album page if albumId exists
+                        if (track.albumId) {
+                          router.push(`/album/${track.albumId}`);
+                        }
+                      }}
+                      onPlayPress={() => playTrack(track)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </LinearGradient>
     </>
   );
 };
 
 const styles = StyleSheet.create({
+  gradientContainer: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },

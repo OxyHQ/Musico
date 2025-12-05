@@ -20,6 +20,7 @@ const ArtistSchema = new Schema<IArtist>({
   genres: [{ type: String, index: true }],
   verified: { type: Boolean, default: false, index: true },
   popularity: { type: Number, default: 0, min: 0, max: 100 },
+  dominantColor: { type: String },
   stats: { type: ArtistStatsSchema, default: () => ({
     followers: 0,
     albums: 0,

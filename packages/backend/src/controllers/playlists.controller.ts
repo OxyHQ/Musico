@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { Playlist } from '@musico/shared-types';
+import { extractDominantColor } from '../services/colorExtractionService';
 
 /**
  * Mock playlists data
@@ -77,6 +78,17 @@ export const createPlaylist = async (req: Request, res: Response, next: NextFunc
 
     const { name, description, coverArt, visibility, isPublic } = req.body;
 
+    // Extract dominant color from cover art if provided
+    let dominantColor: string | undefined;
+    if (coverArt) {
+      try {
+        dominantColor = await extractDominantColor(coverArt);
+      } catch (error) {
+        // Continue without dominant color if extraction fails
+        console.error('[PlaylistController] Failed to extract color:', error);
+      }
+    }
+
     // Mock - create new playlist
     const newPlaylist: Playlist = {
       id: `playlist${Date.now()}`,
@@ -89,6 +101,7 @@ export const createPlaylist = async (req: Request, res: Response, next: NextFunc
       trackCount: 0,
       totalDuration: 0,
       isPublic: isPublic || false,
+      dominantColor,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

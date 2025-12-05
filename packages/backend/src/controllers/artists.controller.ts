@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { ArtistModel } from '../models/Artist';
 import { AlbumModel } from '../models/Album';
 import { toApiFormat, toApiFormatArray } from '../utils/musicHelpers';
@@ -49,6 +50,12 @@ export const getArtistById = async (req: Request, res: Response, next: NextFunct
     }
 
     const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Artist not found' });
+    }
+    
     const artist = await ArtistModel.findById(id).lean();
 
     if (!artist) {
@@ -73,6 +80,11 @@ export const getArtistAlbums = async (req: Request, res: Response, next: NextFun
     }
 
     const { id } = req.params;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Artist not found' });
+    }
     
     // Verify artist exists
     const artist = await ArtistModel.findById(id).lean();

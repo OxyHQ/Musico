@@ -40,6 +40,7 @@ export interface Playlist extends Timestamps {
   totalDuration: number; // total duration in seconds
   followers?: number;
   isPublic: boolean;
+  dominantColor?: string; // Hex color extracted from cover art (e.g., "#FF5733")
   collaborators?: PlaylistCollaborator[];
 }
 
