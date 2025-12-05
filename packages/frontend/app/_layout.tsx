@@ -1,0 +1,324 @@
+// Import Reanimated early to ensure proper initialization before other modules
+import 'react-native-reanimated';
+
+import NetInfo from '@react-native-community/netinfo';
+import { QueryClient, focusManager, onlineManager } from '@tanstack/react-query';
+import { useFonts } from "expo-font";
+import { Slot } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState, memo } from "react";
+import { AppState, Platform, StyleSheet, View, type AppStateStatus } from "react-native";
+
+// Components
+import AppSplashScreen from '@/components/AppSplashScreen';
+import { PlayerBar } from "@/components/PlayerBar";
+import { TopBar } from "@/components/TopBar";
+import { LibrarySidebar } from "@/components/LibrarySidebar";
+import { NowPlaying } from "@/components/NowPlaying";
+import { ThemedView } from "@/components/ThemedView";
+import { AppProviders } from '@/components/providers/AppProviders';
+import { QUERY_CLIENT_CONFIG } from '@/components/providers/constants';
+import { Provider as PortalProvider, Outlet as PortalOutlet } from '@/components/Portal';
+
+// Hooks
+import { useColorScheme } from "@/hooks/useColorScheme";
+import { useKeyboardVisibility } from "@/hooks/useKeyboardVisibility";
+import { useIsScreenNotMobile, useIsDesktop } from "@/hooks/useOptimizedMediaQuery";
+import { useTheme } from '@/hooks/useTheme';
+import { LayoutScrollProvider, useLayoutScroll } from '@/context/LayoutScrollContext';
+
+// Services & Utils
+import { oxyServices } from '@/lib/oxyServices';
+import { AppInitializer } from '@/lib/appInitializer';
+
+// Styles
+import '../styles/global.css';
+
+// Types
+interface SplashState {
+  initializationComplete: boolean;
+  startFade: boolean;
+  fadeComplete: boolean;
+}
+
+interface MainLayoutProps {
+  isScreenNotMobile: boolean;
+}
+
+/**
+ * MainLayout Component
+ * Spotify-like 5-panel layout:
+ * - Top bar (always visible)
+ * - Left sidebar (Your Library - collapsible)
+ * - Main content area (flexible, scrollable)
+ * - Right sidebar (artist/album details - collapsible, desktop only)
+ * - Bottom player bar (always visible, fixed position)
+ */
+const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
+  const theme = useTheme();
+  const { forwardWheelEvent } = useLayoutScroll();
+  const isDesktop = useIsDesktop();
+  const keyboardVisible = useKeyboardVisibility();
+
+  const styles = useMemo(() => StyleSheet.create({
+    outerContainer: {
+      flex: 1,
+      width: '100%',
+      backgroundColor: theme.colors.background,
+    },
+    topBarContainer: {
+      ...Platform.select({
+        web: {
+          position: 'sticky' as any,
+          top: 0,
+          zIndex: 1000,
+        },
+      }),
+    },
+    contentContainer: {
+      flex: 1,
+      flexDirection: isScreenNotMobile ? 'row' : 'column',
+      overflow: 'hidden',
+    },
+    leftSidebarContainer: {
+      ...Platform.select({
+        web: {
+          height: 'calc(100vh - 64px - 72px)', // Viewport height minus top bar and player bar
+        },
+      }),
+    },
+    mainContentWrapper: {
+      flex: 1,
+      minWidth: 0, // Allow flexbox to shrink below content size
+      backgroundColor: theme.colors.background,
+      ...Platform.select({
+        web: {
+          overflowY: 'auto' as any,
+          height: 'calc(100vh - 64px - 72px)', // Viewport height minus top bar and player bar
+        },
+      }),
+    },
+    rightSidebarContainer: {
+      ...Platform.select({
+        web: {
+          height: 'calc(100vh - 64px - 72px)',
+        },
+      }),
+    },
+    playerBarContainer: {
+      ...Platform.select({
+        web: {
+          position: 'fixed' as any,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+        },
+      }),
+    },
+  }), [isScreenNotMobile, isDesktop, theme.colors.background]);
+
+  const handleWheel = useCallback((event: any) => {
+    forwardWheelEvent(event);
+  }, [forwardWheelEvent]);
+
+  const containerProps = useMemo(
+    () => (Platform.OS === 'web' ? { onWheel: handleWheel } : {}),
+    [handleWheel]
+  );
+
+  return (
+    <View style={styles.outerContainer} {...containerProps}>
+      {/* Top Navigation Bar */}
+      <View style={styles.topBarContainer}>
+        <TopBar />
+      </View>
+
+      {/* Main Content Area with Sidebars */}
+      <View style={styles.contentContainer}>
+        {/* Left Sidebar - Your Library */}
+        {isScreenNotMobile && (
+          <View style={styles.leftSidebarContainer}>
+            <LibrarySidebar />
+          </View>
+        )}
+
+        {/* Main Content */}
+        <ThemedView style={styles.mainContentWrapper}>
+          <Slot />
+        </ThemedView>
+
+        {/* Right Sidebar - Artist/Album Details (Desktop only) */}
+        {isDesktop && (
+          <View style={styles.rightSidebarContainer}>
+            <NowPlaying />
+          </View>
+        )}
+      </View>
+
+      {/* Bottom Player Bar */}
+      {!keyboardVisible && (
+        <View style={styles.playerBarContainer}>
+          <PlayerBar />
+        </View>
+      )}
+    </View>
+  );
+});
+
+MainLayout.displayName = 'MainLayout';
+
+export default function RootLayout() {
+  // State
+  const [appIsReady, setAppIsReady] = useState(false);
+  const [splashState, setSplashState] = useState<SplashState>({
+    initializationComplete: false,
+    startFade: false,
+    fadeComplete: false,
+  });
+
+  // Hooks
+  const isScreenNotMobile = useIsScreenNotMobile();
+  const keyboardVisible = useKeyboardVisibility();
+
+  // Memoized instances
+  const queryClient = useMemo(() => new QueryClient(QUERY_CLIENT_CONFIG), []);
+
+  // Font Loading
+  // Optimized: Using variable fonts - single file per family contains all weights
+  // This reduces loading overhead significantly compared to registering each weight separately
+  const [fontsLoaded] = useFonts(
+    useMemo(() => {
+      const fontMap: Record<string, any> = {};
+      const InterVariable = require('@/assets/fonts/inter/InterVariable.ttf');
+      const PhuduVariable = require('@/assets/fonts/Phudu-VariableFont_wght.ttf');
+
+      // Inter: Single variable font with weight aliases
+      ['Thin', 'ExtraLight', 'Light', 'Regular', 'Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black'].forEach(weight => {
+        fontMap[`Inter-${weight}`] = InterVariable;
+      });
+
+      // Phudu: Single variable font with weight aliases
+      ['Thin', 'Regular', 'Medium', 'SemiBold', 'Bold'].forEach(weight => {
+        fontMap[`Phudu-${weight}`] = PhuduVariable;
+      });
+
+      return fontMap;
+    }, [])
+  );
+
+  // Callbacks
+  const handleSplashFadeComplete = useCallback(() => {
+    setSplashState((prev) => ({ ...prev, fadeComplete: true }));
+  }, []);
+
+  const initializeApp = useCallback(async () => {
+    if (!fontsLoaded) return;
+
+    const result = await AppInitializer.initializeApp(fontsLoaded, oxyServices);
+
+    if (result.success) {
+      setSplashState((prev) => ({ ...prev, initializationComplete: true }));
+    } else {
+      console.error('App initialization failed:', result.error);
+      // Still mark as complete to prevent blocking the app
+      setSplashState((prev) => ({ ...prev, initializationComplete: true }));
+    }
+  }, [fontsLoaded]);
+
+
+  // Initialize i18n once when the app mounts
+  useEffect(() => {
+    AppInitializer.initializeI18n().catch((error) => {
+      console.error('Failed to initialize i18n:', error);
+    });
+  }, []);
+
+  // Load eager settings that don't block app initialization
+  useEffect(() => {
+    AppInitializer.loadEagerSettings(oxyServices);
+  }, []);
+
+  // React Query managers - setup once on mount
+  useEffect(() => {
+    // React Query online manager using NetInfo
+    const unsubscribeNetInfo = NetInfo.addEventListener((state) => {
+      onlineManager.setOnline(Boolean(state.isConnected && state.isInternetReachable !== false));
+    });
+
+    // React Query focus manager using AppState
+    const onAppStateChange = (status: AppStateStatus) => {
+      focusManager.setFocused(status === 'active');
+    };
+    const appStateSub = AppState.addEventListener('change', onAppStateChange);
+
+    return () => {
+      unsubscribeNetInfo();
+      appStateSub.remove();
+    };
+  }, []); // Empty deps - setup once
+
+  useEffect(() => {
+    initializeApp();
+  }, [initializeApp]);
+
+  useEffect(() => {
+    if (fontsLoaded && splashState.initializationComplete && !splashState.startFade) {
+      setSplashState((prev) => ({ ...prev, startFade: true }));
+    }
+  }, [fontsLoaded, splashState.initializationComplete, splashState.startFade]);
+
+  // Set appIsReady only after both initialization (including auth) and splash fade complete
+  useEffect(() => {
+    if (splashState.initializationComplete && splashState.fadeComplete && !appIsReady) {
+      setAppIsReady(true);
+    }
+  }, [splashState.initializationComplete, splashState.fadeComplete, appIsReady]);
+
+  const theme = useTheme();
+  const colorScheme = useColorScheme();
+
+  // Memoize app content to prevent unnecessary re-renders
+  const appContent = useMemo(() => {
+    if (!appIsReady) {
+      return (
+        <AppSplashScreen
+          startFade={splashState.startFade}
+          onFadeComplete={handleSplashFadeComplete}
+        />
+      );
+    }
+
+    return (
+      <AppProviders
+        oxyServices={oxyServices}
+        colorScheme={colorScheme}
+        queryClient={queryClient}
+      >
+        {/* Portal Provider for rendering components outside tree */}
+        <PortalProvider>
+          <LayoutScrollProvider>
+            <MainLayout isScreenNotMobile={isScreenNotMobile} />
+            <PortalOutlet />
+          </LayoutScrollProvider>
+        </PortalProvider>
+      </AppProviders>
+    );
+  }, [
+    appIsReady,
+    splashState.startFade,
+    splashState.initializationComplete,
+    splashState.fadeComplete,
+    colorScheme,
+    isScreenNotMobile,
+    keyboardVisible,
+    handleSplashFadeComplete,
+    queryClient,
+    // oxyServices is stable (imported singleton), but included for completeness
+  ]);
+
+  return (
+    <ThemedView style={{ flex: 1 }}>
+      {appContent}
+    </ThemedView>
+  );
+}
