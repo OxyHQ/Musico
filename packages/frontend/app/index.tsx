@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, View, ScrollView, Text, Platform, Pressable, ActivityIndicator, Animated } from 'react-native';
+import { StyleSheet, View, ScrollView, Text, Platform, Pressable, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks/useTheme';
 import { useOxy } from '@oxyhq/services';
@@ -47,9 +47,124 @@ const HomeScreen: React.FC = () => {
   const [madeForYouAlbums, setMadeForYouAlbums] = useState<Album[]>([]);
   const [sectionsLoading, setSectionsLoading] = useState(true);
 
-  // State for hover gradient color
+  // State for hover gradient color with smooth transitions
   const [hoveredItemColor, setHoveredItemColor] = useState<string | null>(null);
-  const gradientColorAnim = useRef(new Animated.Value(0)).current;
+  const [displayGradientColor, setDisplayGradientColor] = useState<string | null>(null);
+  const currentDisplayColorRef = useRef<string | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Smooth color transition when hoveredItemColor changes
+  useEffect(() => {
+    // Cancel any ongoing animation
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    let isCancelled = false;
+    const transitionDuration = 300; // milliseconds
+    const startTime = performance.now();
+    const startColor = currentDisplayColorRef.current;
+    const targetColor = hoveredItemColor;
+
+    // If no change, skip animation
+    if (targetColor === startColor) {
+      return;
+    }
+
+    // Helper to interpolate between two RGB colors
+    const interpolateRgb = (
+      start: { r: number; g: number; b: number },
+      end: { r: number; g: number; b: number },
+      progress: number
+    ): { r: number; g: number; b: number } => {
+      return {
+        r: Math.round(start.r + (end.r - start.r) * progress),
+        g: Math.round(start.g + (end.g - start.g) * progress),
+        b: Math.round(start.b + (end.b - start.b) * progress),
+      };
+    };
+
+    // Convert RGB to hex string
+    const rgbToHex = (rgb: { r: number; g: number; b: number }): string => {
+      return `#${rgb.r.toString(16).padStart(2, '0')}${rgb.g.toString(16).padStart(2, '0')}${rgb.b.toString(16).padStart(2, '0')}`;
+    };
+
+    // Easing function for smooth animation (ease-in-out)
+    const easeInOut = (t: number): number => {
+      return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    };
+
+    // Get RGB values for start and target colors
+    const getStartRgb = (): { r: number; g: number; b: number } => {
+      if (startColor) {
+        const rgb = hexToRgb(startColor);
+        if (rgb) return rgb;
+      }
+      // Default to theme primary color
+      const defaultRgb = hexToRgb(theme.colors.primary);
+      return defaultRgb || { r: 128, g: 128, b: 128 };
+    };
+
+    const getTargetRgb = (): { r: number; g: number; b: number } | null => {
+      if (targetColor) {
+        return hexToRgb(targetColor);
+      }
+      return null;
+    };
+
+    const startRgb = getStartRgb();
+    const targetRgb = getTargetRgb();
+
+    const animate = () => {
+      if (isCancelled) return;
+
+      const elapsed = performance.now() - startTime;
+      const rawProgress = Math.min(elapsed / transitionDuration, 1);
+      const easedProgress = easeInOut(rawProgress);
+
+      if (targetRgb) {
+        // Transitioning to a specific color
+        const currentRgb = interpolateRgb(startRgb, targetRgb, easedProgress);
+        const currentHex = rgbToHex(currentRgb);
+        setDisplayGradientColor(currentHex);
+        currentDisplayColorRef.current = currentHex;
+      } else {
+        // Transitioning back to default - interpolate to default theme color
+        const defaultRgb = hexToRgb(theme.colors.primary) || { r: 128, g: 128, b: 128 };
+        const currentRgb = interpolateRgb(startRgb, defaultRgb, easedProgress);
+        const currentHex = rgbToHex(currentRgb);
+        setDisplayGradientColor(currentHex);
+        currentDisplayColorRef.current = currentHex;
+      }
+
+      if (rawProgress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        // Animation complete - set final state
+        if (targetColor) {
+          setDisplayGradientColor(targetColor);
+          currentDisplayColorRef.current = targetColor;
+        } else {
+          // Transitioned to null - set to null to use default gradient
+          setDisplayGradientColor(null);
+          currentDisplayColorRef.current = null;
+        }
+        animationFrameRef.current = null;
+      }
+    };
+
+    // Start animation
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      isCancelled = true;
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [hoveredItemColor, theme.colors.primary]);
 
   // Fetch tracks on mount
   useEffect(() => {
@@ -149,10 +264,10 @@ const HomeScreen: React.FC = () => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
       ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
-        }
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
       : null;
   };
 
@@ -175,14 +290,14 @@ const HomeScreen: React.FC = () => {
     setHoveredItemColor(null);
   };
 
-  // Get the current gradient top color
+  // Get the current gradient top color with smooth transitions
   const getGradientTopColor = (): string => {
-    if (hoveredItemColor) {
+    if (displayGradientColor) {
       // Use hovered color with opacity for top 20%
-      return hexToRgba(hoveredItemColor, 0.2);
+      return hexToRgba(displayGradientColor, 0.2);
     }
     // Default to theme primary with opacity
-    return theme.colors.primary + '33';
+    return hexToRgba(theme.colors.primary, 0.2);
   };
 
   // Compute quick access items from fetched data (mix of albums, artists, playlists)
@@ -283,8 +398,8 @@ const HomeScreen: React.FC = () => {
                     : item.data.name;
                 const id = item.data.id;
 
-                const dominantColor = item.data.dominantColor;
-                
+                const dominantColor = (item.data as any).dominantColor;
+
                 return (
                   <Pressable
                     key={`${item.type}-${id}`}
@@ -356,7 +471,7 @@ const HomeScreen: React.FC = () => {
                       onPlayPress={() => {
                         router.push(`/playlist/${playlist.id}` as any);
                       }}
-                      onHoverIn={() => handleHoverIn(playlist.dominantColor)}
+                      onHoverIn={() => handleHoverIn((playlist as any).dominantColor)}
                       onHoverOut={handleHoverOut}
                     />
                   </View>
@@ -385,7 +500,7 @@ const HomeScreen: React.FC = () => {
                           console.error('[HomeScreen] Error playing album:', error);
                         }
                       }}
-                      onHoverIn={() => handleHoverIn(album.dominantColor)}
+                      onHoverIn={() => handleHoverIn((album as any).dominantColor)}
                       onHoverOut={handleHoverOut}
                     />
                   </View>
@@ -416,6 +531,8 @@ const HomeScreen: React.FC = () => {
                       onPlayPress={() => {
                         router.push(`/playlist/${playlist.id}` as any);
                       }}
+                      onHoverIn={() => handleHoverIn((playlist as any).dominantColor)}
+                      onHoverOut={handleHoverOut}
                     />
                   </View>
                 ))}
@@ -443,6 +560,8 @@ const HomeScreen: React.FC = () => {
                           console.error('[HomeScreen] Error playing album:', error);
                         }
                       }}
+                      onHoverIn={() => handleHoverIn((album as any).dominantColor)}
+                      onHoverOut={handleHoverOut}
                     />
                   </View>
                 ))}
@@ -492,6 +611,11 @@ const HomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   gradientContainer: {
     flex: 1,
+    ...Platform.select({
+      web: {
+        transition: 'all 0.3s ease',
+      },
+    }),
   },
   scrollView: {
     flex: 1,

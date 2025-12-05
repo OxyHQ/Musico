@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, Pressable, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks/useTheme';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { useMediaQuery } from 'react-responsive';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -21,8 +21,9 @@ export const NowPlaying: React.FC = () => {
   const theme = useTheme();
   const router = useRouter();
   const isDesktop = useMediaQuery({ minWidth: 1024 });
-  const { isNowPlayingVisible, setNowPlayingVisible } = useUIStore();
+  const { isNowPlayingVisible, setNowPlayingVisible, fullscreenPanel, toggleFullscreen } = useUIStore();
   const { currentTrack, playTrack } = usePlayerStore();
+  const isFullscreen = fullscreenPanel === 'nowPlaying';
   const [album, setAlbum] = useState<Album | null>(null);
   const [artist, setArtist] = useState<Artist | null>(null);
   const [nextTracks, setNextTracks] = useState<Track[]>([]);
@@ -76,12 +77,40 @@ export const NowPlaying: React.FC = () => {
       style={[
         styles.container, 
         { 
-          width: isNowPlayingVisible ? 350 : 0,
+          width: isNowPlayingVisible ? (isFullscreen ? '100%' : 350) : 0,
         }
       ]}
     >
       {isNowPlayingVisible && (
         <View style={styles.wrapper}>
+          {/* Header with buttons */}
+          <View style={styles.header}>
+            <View style={styles.headerButtons}>
+              <Pressable
+                onPress={() => toggleFullscreen('nowPlaying')}
+                style={styles.headerButton}
+              >
+                <Ionicons
+                  name={isFullscreen ? 'contract' : 'expand'}
+                  size={20}
+                  color="#fff"
+                />
+              </Pressable>
+              {!isFullscreen && (
+                <Pressable
+                  onPress={() => setNowPlayingVisible(false)}
+                  style={styles.headerButton}
+                >
+                  <Octicons
+                    name="sidebar-collapse"
+                    size={20}
+                    color="#fff"
+                  />
+                </Pressable>
+              )}
+            </View>
+          </View>
+
           {/* Fixed Background Image */}
           {backgroundImage ? (
             <View style={styles.backgroundContainer}>
@@ -285,11 +314,40 @@ const styles = StyleSheet.create({
       default: {
         flex: 1,
       },
+      web: {
+        width: '100%',
+      },
     }),
   },
   wrapper: {
     flex: 1,
     position: 'relative',
+  },
+  header: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    padding: 12,
+    alignItems: 'flex-end',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  headerButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
   },
   backgroundContainer: {
     position: 'absolute',

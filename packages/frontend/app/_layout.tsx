@@ -29,6 +29,7 @@ import { useIsScreenNotMobile, useIsDesktop } from "@/hooks/useOptimizedMediaQue
 import { useTheme } from '@/hooks/useTheme';
 import { LayoutScrollProvider, useLayoutScroll } from '@/context/LayoutScrollContext';
 import { usePlayerStore } from '@/stores/playerStore';
+import { useUIStore } from '@/stores/uiStore';
 
 // Services & Utils
 import { oxyServices } from '@/lib/oxyServices';
@@ -63,6 +64,9 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
   const isDesktop = useIsDesktop();
   const keyboardVisible = useKeyboardVisibility();
   const { currentTrack } = usePlayerStore();
+  const { fullscreenPanel } = useUIStore();
+  const isLibraryFullscreen = fullscreenPanel === 'library';
+  const isNowPlayingFullscreen = fullscreenPanel === 'nowPlaying';
 
   // On mobile, no gaps or padding
   const gapSize = isScreenNotMobile ? 12 : 0;
@@ -109,7 +113,7 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
     },
     leftSidebarContainer: {
       flexShrink: 0,
-      flexGrow: 0,
+      flexGrow: isLibraryFullscreen ? 1 : 0,
       ...Platform.select({
         web: {
           height: panelHeight,
@@ -128,7 +132,7 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
     },
     rightSidebarContainer: {
       flexShrink: 0,
-      flexGrow: 0,
+      flexGrow: isNowPlayingFullscreen ? 1 : 0,
       ...Platform.select({
         web: {
           height: panelHeight,
@@ -138,7 +142,7 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
     playerBarContainer: {
       // Desktop only - mobile player bar handles its own positioning
     },
-  }), [isScreenNotMobile, isDesktop, theme.colors.background, gapSize, outerPadding, panelHeight]);
+  }), [isScreenNotMobile, isDesktop, theme.colors.background, gapSize, outerPadding, panelHeight, isLibraryFullscreen, isNowPlayingFullscreen]);
 
   const handleWheel = useCallback((event: any) => {
     forwardWheelEvent(event);
@@ -161,19 +165,21 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
         {/* Panels Wrapper - All panels with same height and rounded corners, padding applied here */}
         <View style={styles.panelsWrapper}>
           {/* Left Sidebar - Your Library */}
-          {isScreenNotMobile && (
+          {isScreenNotMobile && !isNowPlayingFullscreen && (
             <Panel rounded="all" radius={12} style={styles.leftSidebarContainer} overflow={false}>
               <LibrarySidebar />
             </Panel>
           )}
 
           {/* Main Content */}
-          <Panel rounded="all" radius={12} style={styles.mainContentWrapper}>
-            <Slot />
-          </Panel>
+          {!isLibraryFullscreen && !isNowPlayingFullscreen && (
+            <Panel rounded="all" radius={12} style={styles.mainContentWrapper}>
+              <Slot />
+            </Panel>
+          )}
 
           {/* Right Sidebar - Artist/Album Details (Desktop only) */}
-          {isDesktop && (
+          {isDesktop && !isLibraryFullscreen && (
             <Panel rounded="all" radius={12} style={styles.rightSidebarContainer}>
               <NowPlaying />
             </Panel>
