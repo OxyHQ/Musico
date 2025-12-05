@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, Pressable, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
 import { useMediaQuery } from 'react-responsive';
@@ -9,7 +10,6 @@ import { Image as ExpoImage } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { musicService } from '@/services/musicService';
 import { Album, Artist, Track } from '@musico/shared-types';
-import { MusicCard } from '@/components/MusicCard';
 import { Avatar } from '@/components/Avatar';
 
 /**
@@ -76,48 +76,46 @@ export const NowPlaying: React.FC = () => {
       style={[
         styles.container, 
         { 
-          backgroundColor: theme.colors.background,
           width: isNowPlayingVisible ? 350 : 0,
         }
       ]}
     >
       {isNowPlayingVisible && (
-        <ScrollView 
-          style={styles.scrollView} 
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: theme.colors.text }]}>Now Playing</Text>
-            <Pressable onPress={() => setNowPlayingVisible(false)} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={theme.colors.text} />
-            </Pressable>
-          </View>
+        <View style={styles.wrapper}>
+          {/* Fixed Background Image */}
+          {backgroundImage ? (
+            <View style={styles.backgroundContainer}>
+              <ExpoImage
+                source={{ uri: backgroundImage }}
+                style={styles.backgroundImage}
+                contentFit="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                locations={[0.4, 1]}
+                style={styles.gradientOverlay}
+              />
+            </View>
+          ) : (
+            <View style={[styles.backgroundPlaceholder, { backgroundColor: theme.colors.backgroundSecondary }]}>
+              <Ionicons name="musical-notes" size={80} color={theme.colors.textSecondary} />
+            </View>
+          )}
 
-          {/* Now Playing Content */}
-          {currentTrack ? (
-            <View style={styles.nowPlayingContainer}>
-              {/* Background Image Section */}
-              <View style={styles.backgroundSection}>
-                {backgroundImage ? (
-                  <View style={styles.backgroundImageContainer}>
-                    <ExpoImage
-                      source={{ uri: backgroundImage }}
-                      style={styles.backgroundImage}
-                      contentFit="cover"
-                    />
-                    {/* Gradient Overlay */}
-                    <View style={styles.gradientOverlay} />
-                  </View>
-                ) : (
-                  <View style={[styles.backgroundPlaceholder, { backgroundColor: theme.colors.backgroundSecondary }]}>
-                    <Ionicons name="musical-notes" size={80} color={theme.colors.textSecondary} />
-                  </View>
-                )}
-                
-                {/* Track Info Overlay at Bottom */}
-                <View style={styles.trackInfoOverlay}>
+          {/* Scrollable Content Overlay */}
+          <ScrollView 
+            style={styles.scrollView} 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Spacer to push content down initially */}
+            <View style={styles.topSpacer} />
+            
+            {/* Now Playing Content */}
+            {currentTrack ? (
+              <View style={styles.nowPlayingContainer}>
+                {/* Track Info at Bottom */}
+                <View style={styles.trackInfoSection}>
                   <Text 
                     style={[styles.trackTitle, { color: '#fff' }]} 
                     numberOfLines={2}
@@ -136,144 +134,144 @@ export const NowPlaying: React.FC = () => {
                     </Text>
                   </Pressable>
                 </View>
-              </View>
 
-              {/* About This Artist Card */}
-              {artist && (
-                <View style={[styles.card, { backgroundColor: theme.colors.backgroundSecondary }]}>
-                  <View style={styles.cardHeader}>
-                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>About this artist</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => router.push(`/artist/${artist.id}`)}
-                    style={styles.artistCard}
-                  >
-                    {artist.image ? (
-                      <Avatar source={artist.image} size={80} />
-                    ) : (
-                      <View style={[styles.artistImagePlaceholder, { backgroundColor: theme.colors.background }]}>
-                        <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
-                      </View>
-                    )}
-                    <View style={styles.artistCardInfo}>
-                      <Text style={[styles.artistCardName, { color: theme.colors.text }]} numberOfLines={1}>
-                        {artist.name}
-                      </Text>
-                      {artist.genre && artist.genre.length > 0 && (
-                        <Text style={[styles.artistCardGenre, { color: theme.colors.textSecondary }]} numberOfLines={1}>
-                          {artist.genre[0]}
-                        </Text>
-                      )}
+                {/* About This Artist Card */}
+                {artist && (
+                  <View style={[styles.card, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                    <View style={styles.cardHeader}>
+                      <Text style={[styles.cardTitle, { color: theme.colors.text }]}>About this artist</Text>
                     </View>
-                  </Pressable>
-                </View>
-              )}
-
-              {/* Credits Card */}
-              {album && (
-                <View style={[styles.card, { backgroundColor: theme.colors.backgroundSecondary }]}>
-                  <View style={styles.cardHeader}>
-                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Credits</Text>
-                  </View>
-                  <View style={styles.creditsContent}>
-                    <View style={styles.creditRow}>
-                      <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Album</Text>
-                      <Pressable
-                        onPress={() => router.push(`/album/${album.id}`)}
-                        style={styles.creditValuePressable}
-                      >
-                        <Text style={[styles.creditValue, { color: theme.colors.text }]} numberOfLines={1}>
-                          {album.title}
-                        </Text>
-                      </Pressable>
-                    </View>
-                    <View style={styles.creditRow}>
-                      <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Artist</Text>
-                      <Pressable
-                        onPress={() => router.push(`/artist/${album.artistId}`)}
-                        style={styles.creditValuePressable}
-                      >
-                        <Text style={[styles.creditValue, { color: theme.colors.text }]} numberOfLines={1}>
-                          {album.artistName}
-                        </Text>
-                      </Pressable>
-                    </View>
-                    {album.releaseDate && (
-                      <View style={styles.creditRow}>
-                        <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Released</Text>
-                        <Text style={[styles.creditValue, { color: theme.colors.text }]}>
-                          {new Date(album.releaseDate).getFullYear()}
-                        </Text>
-                      </View>
-                    )}
-                    {album.label && (
-                      <View style={styles.creditRow}>
-                        <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Label</Text>
-                        <Text style={[styles.creditValue, { color: theme.colors.text }]} numberOfLines={1}>
-                          {album.label}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Next in Queue Card */}
-              <View style={[styles.card, { backgroundColor: theme.colors.backgroundSecondary }]}>
-                <View style={styles.cardHeader}>
-                  <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Next in queue</Text>
-                </View>
-                {nextTracks.length > 0 ? (
-                  <View style={styles.queueContent}>
-                    {nextTracks.slice(0, 5).map((track, index) => (
-                      <Pressable
-                        key={track.id}
-                        onPress={() => playTrack(track)}
-                        style={styles.queueItem}
-                      >
-                        {track.coverArt ? (
-                          <ExpoImage
-                            source={{ uri: track.coverArt }}
-                            style={styles.queueItemImage}
-                            contentFit="cover"
-                          />
-                        ) : (
-                          <View style={[styles.queueItemImagePlaceholder, { backgroundColor: theme.colors.background }]}>
-                            <Ionicons name="musical-notes" size={16} color={theme.colors.textSecondary} />
-                          </View>
-                        )}
-                        <View style={styles.queueItemInfo}>
-                          <Text style={[styles.queueItemTitle, { color: theme.colors.text }]} numberOfLines={1}>
-                            {track.title}
-                          </Text>
-                          <Text style={[styles.queueItemArtist, { color: theme.colors.textSecondary }]} numberOfLines={1}>
-                            {track.artistName}
-                          </Text>
+                    <Pressable
+                      onPress={() => router.push(`/artist/${artist.id}`)}
+                      style={styles.artistCard}
+                    >
+                      {artist.image ? (
+                        <Avatar source={artist.image} size={80} />
+                      ) : (
+                        <View style={[styles.artistImagePlaceholder, { backgroundColor: theme.colors.background }]}>
+                          <Ionicons name="person" size={40} color={theme.colors.textSecondary} />
                         </View>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : (
-                  <View style={styles.emptyQueue}>
-                    <Text style={[styles.emptyQueueText, { color: theme.colors.textSecondary }]}>
-                      Your queue is empty
-                    </Text>
+                      )}
+                      <View style={styles.artistCardInfo}>
+                        <Text style={[styles.artistCardName, { color: theme.colors.text }]} numberOfLines={1}>
+                          {artist.name}
+                        </Text>
+                        {artist.genres && artist.genres.length > 0 && (
+                          <Text style={[styles.artistCardGenre, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                            {artist.genres[0]}
+                          </Text>
+                        )}
+                      </View>
+                    </Pressable>
                   </View>
                 )}
+
+                {/* Credits Card */}
+                {album && (
+                  <View style={[styles.card, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                    <View style={styles.cardHeader}>
+                      <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Credits</Text>
+                    </View>
+                    <View style={styles.creditsContent}>
+                      <View style={styles.creditRow}>
+                        <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Album</Text>
+                        <Pressable
+                          onPress={() => router.push(`/album/${album.id}`)}
+                          style={styles.creditValuePressable}
+                        >
+                          <Text style={[styles.creditValue, { color: theme.colors.text }]} numberOfLines={1}>
+                            {album.title}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <View style={styles.creditRow}>
+                        <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Artist</Text>
+                        <Pressable
+                          onPress={() => router.push(`/artist/${album.artistId}`)}
+                          style={styles.creditValuePressable}
+                        >
+                          <Text style={[styles.creditValue, { color: theme.colors.text }]} numberOfLines={1}>
+                            {album.artistName}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      {album.releaseDate && (
+                        <View style={styles.creditRow}>
+                          <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Released</Text>
+                          <Text style={[styles.creditValue, { color: theme.colors.text }]}>
+                            {new Date(album.releaseDate).getFullYear()}
+                          </Text>
+                        </View>
+                      )}
+                      {album.label && (
+                        <View style={styles.creditRow}>
+                          <Text style={[styles.creditLabel, { color: theme.colors.textSecondary }]}>Label</Text>
+                          <Text style={[styles.creditValue, { color: theme.colors.text }]} numberOfLines={1}>
+                            {album.label}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Next in Queue Card */}
+                <View style={[styles.card, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                  <View style={styles.cardHeader}>
+                    <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Next in queue</Text>
+                  </View>
+                  {nextTracks.length > 0 ? (
+                    <View style={styles.queueContent}>
+                      {nextTracks.slice(0, 5).map((track, index) => (
+                        <Pressable
+                          key={track.id}
+                          onPress={() => playTrack(track)}
+                          style={styles.queueItem}
+                        >
+                          {track.coverArt ? (
+                            <ExpoImage
+                              source={{ uri: track.coverArt }}
+                              style={styles.queueItemImage}
+                              contentFit="cover"
+                            />
+                          ) : (
+                            <View style={[styles.queueItemImagePlaceholder, { backgroundColor: theme.colors.background }]}>
+                              <Ionicons name="musical-notes" size={16} color={theme.colors.textSecondary} />
+                            </View>
+                          )}
+                          <View style={styles.queueItemInfo}>
+                            <Text style={[styles.queueItemTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                              {track.title}
+                            </Text>
+                            <Text style={[styles.queueItemArtist, { color: theme.colors.textSecondary }]} numberOfLines={1}>
+                              {track.artistName}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyQueue}>
+                      <Text style={[styles.emptyQueueText, { color: theme.colors.textSecondary }]}>
+                        Your queue is empty
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          ) : (
-            <View style={styles.placeholder}>
-              <Ionicons name="musical-notes-outline" size={48} color={theme.colors.textSecondary} style={styles.placeholderIcon} />
-              <Text style={[styles.placeholderText, { color: theme.colors.textSecondary }]}>
-                No track playing
-              </Text>
-              <Text style={[styles.placeholderSubtext, { color: theme.colors.textSecondary }]}>
-                Start playing a song to see it here
-              </Text>
-            </View>
-          )}
-        </ScrollView>
+            ) : (
+              <View style={styles.placeholder}>
+                <Ionicons name="musical-notes-outline" size={48} color={theme.colors.textSecondary} style={styles.placeholderIcon} />
+                <Text style={[styles.placeholderText, { color: theme.colors.textSecondary }]}>
+                  No track playing
+                </Text>
+                <Text style={[styles.placeholderSubtext, { color: theme.colors.textSecondary }]}>
+                  Start playing a song to see it here
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+        </View>
       )}
     </View>
   );
@@ -287,7 +285,6 @@ const styles = StyleSheet.create({
         position: 'sticky' as any,
         top: 64,
         height: 'calc(100vh - 64px)',
-        overflowY: 'auto' as any,
       },
       default: {
         flex: 1,
@@ -295,50 +292,20 @@ const styles = StyleSheet.create({
     }),
     borderLeftWidth: 1,
     borderLeftColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 100,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingBottom: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-    ...Platform.select({
-      web: {
-        cursor: 'pointer',
-      },
-    }),
-  },
-  nowPlayingContainer: {
-    width: '100%',
-  },
-  backgroundSection: {
-    width: '100%',
-    height: 400,
-    marginBottom: 16,
-    position: 'relative',
     overflow: 'hidden',
   },
-  backgroundImageContainer: {
+  wrapper: {
+    flex: 1,
+    position: 'relative',
+  },
+  backgroundContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
     height: '100%',
-    position: 'relative',
   },
   backgroundImage: {
     width: '100%',
@@ -349,28 +316,43 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: '60%',
-    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-    ...Platform.select({
-      web: {
-        background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)',
-      },
-      default: {},
-    }),
+    height: '100%',
   },
   backgroundPlaceholder: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     width: '100%',
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trackInfoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  scrollView: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  topSpacer: {
+    ...Platform.select({
+      web: {
+        height: 'calc(100vh - 64px - 200px)', // Viewport minus top bar and approximate track info height
+      },
+      default: {
+        height: 400,
+      },
+    }),
+  },
+  nowPlayingContainer: {
+    width: '100%',
+  },
+  trackInfoSection: {
     padding: 20,
     paddingBottom: 24,
+    marginBottom: 16,
   },
   trackTitle: {
     fontSize: 32,

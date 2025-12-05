@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, AudioPlayer } from 'expo-audio';
 import { Track } from '@musico/shared-types';
 import { getApiOrigin } from '@/utils/api';
 
@@ -34,12 +34,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     
     positionUpdateInterval = setInterval(() => {
       try {
-        const status = player.status;
-        if (status.isLoaded) {
+        if (player.isLoaded) {
           set({ 
-            currentTime: status.currentTime / 1000, // Convert to seconds
-            duration: status.duration ? status.duration / 1000 : get().duration,
-            isPlaying: status.isPlaying || false,
+            currentTime: player.currentTime || 0,
+            duration: player.duration || get().duration,
+            isPlaying: player.playing || false,
           });
         }
       } catch (error) {
@@ -84,23 +83,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         }
         console.log('[PlayerStore] Audio URL:', audioUrl);
 
-        // Create new audio player
-        const player = new AudioPlayer();
+        // Create new audio player using createAudioPlayer function
+        const player = createAudioPlayer(audioUrl, {
+          updateInterval: 100, // Update every 100ms for smooth progress
+        });
         
         // Set volume
         player.volume = get().volume;
 
         // Set up event listeners
-        const statusListener = player.addListener('statusChange', (status) => {
+        const statusListener = player.addListener('playbackStatusUpdate', (status) => {
           console.log('[PlayerStore] Status changed:', status);
           if (status.isLoaded) {
             if (status.didJustFinish) {
               get().stop();
             } else {
               set({
-                isPlaying: status.isPlaying || false,
-                currentTime: status.currentTime ? status.currentTime / 1000 : 0,
-                duration: status.duration ? status.duration / 1000 : get().duration,
+                isPlaying: status.playing || false,
+                currentTime: status.currentTime || 0,
+                duration: status.duration || get().duration,
               });
             }
           }
@@ -114,33 +115,28 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           duration: track.duration || 0,
         });
 
-        // Load and play the audio
+        // Play the audio (createAudioPlayer auto-loads the source)
         try {
-          console.log('[PlayerStore] Replacing audio source with:', audioUrl);
-          await player.replace(audioUrl);
-          console.log('[PlayerStore] Replace succeeded, status:', player.status);
-          
-          // Wait a bit for the audio to load
-          await new Promise(resolve => setTimeout(resolve, 300));
-          
           console.log('[PlayerStore] Calling player.play()');
-          await player.play();
-          console.log('[PlayerStore] Player.play() succeeded, status:', player.status);
+          player.play();
+          console.log('[PlayerStore] Player.play() called, status:', {
+            isLoaded: player.isLoaded,
+            playing: player.playing,
+            paused: player.paused,
+          });
           
-          // Wait a bit more for status to update
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Wait a bit for the audio to load and start playing
+          await new Promise(resolve => setTimeout(resolve, 500));
           
-          const status = player.status;
-          console.log('[PlayerStore] Player status after play:', status);
-          
-          const duration = track.duration || (status?.isLoaded && status?.duration 
-            ? status.duration / 1000 
+          const duration = track.duration || (player.isLoaded && player.duration 
+            ? player.duration 
             : 0);
 
           set({ 
-            isPlaying: true,
+            isPlaying: player.playing,
             isLoading: false,
             duration,
+            currentTime: player.currentTime || 0,
           });
 
           startPositionUpdates(player);
@@ -167,7 +163,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     pause: async () => {
       const { player } = get();
       if (player) {
-        await player.pause();
+        player.pause();
         set({ isPlaying: false });
       }
     },
@@ -175,7 +171,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     resume: async () => {
       const { player } = get();
       if (player) {
-        await player.play();
+        player.play();
         set({ isPlaying: true });
       }
     },
@@ -183,7 +179,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     seek: async (position: number) => {
       const { player } = get();
       if (player) {
-        await player.seekTo(position * 1000); // Convert to milliseconds
+        await player.seekTo(position);
         set({ currentTime: position });
       }
     },
@@ -202,7 +198,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const { player } = get();
       if (player) {
         player.removeAllListeners();
-        await player.remove();
+        player.remove();
       }
       set({ 
         player: null,

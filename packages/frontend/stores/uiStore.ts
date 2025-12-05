@@ -7,7 +7,7 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  isNowPlayingVisible: false,
+  isNowPlayingVisible: true, // Open by default
   toggleNowPlaying: () => set((state) => ({ isNowPlayingVisible: !state.isNowPlayingVisible })),
   setNowPlayingVisible: (visible: boolean) => set({ isNowPlayingVisible: visible }),
 }));
