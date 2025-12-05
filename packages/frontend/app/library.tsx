@@ -1,24 +1,40 @@
 import React from 'react';
-import { StyleSheet, View, Text, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Pressable, Platform } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import SEO from '@/components/SEO';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Octicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+
+interface LibraryScreenProps {
+  // Optional props for sidebar mode
+  showSidebarControls?: boolean;
+  isFullscreen?: boolean;
+  onFullscreen?: () => void;
+  onCollapse?: () => void;
+}
 
 /**
  * Musico Library Screen
  * User's music library (Liked Songs, Playlists, Artists, Albums)
+ * Can be used as standalone screen or as sidebar component
  */
-const LibraryScreen: React.FC = () => {
+const LibraryScreen: React.FC<LibraryScreenProps> = ({
+  showSidebarControls = false,
+  isFullscreen = false,
+  onFullscreen,
+  onCollapse,
+}) => {
   const theme = useTheme();
   const router = useRouter();
 
   return (
     <>
-      <SEO
-        title="Your Library - Musico"
-        description="Your music library"
-      />
+      {!showSidebarControls && (
+        <SEO
+          title="Your Library - Musico"
+          description="Your music library"
+        />
+      )}
       <ScrollView 
         style={[styles.container, { backgroundColor: theme.colors.background }]}
         contentContainerStyle={styles.contentContainer}
@@ -27,12 +43,30 @@ const LibraryScreen: React.FC = () => {
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Your Library</Text>
           <View style={styles.headerActions}>
-            <Pressable style={styles.iconButton}>
-              <Ionicons name="search-outline" size={24} color={theme.colors.text} />
-            </Pressable>
-            <Pressable style={styles.iconButton}>
-              <Ionicons name="reorder-three-outline" size={24} color={theme.colors.text} />
-            </Pressable>
+            {showSidebarControls && onFullscreen && (
+              <Pressable
+                onPress={onFullscreen}
+                style={styles.headerButton}
+              >
+                <Ionicons
+                  name={isFullscreen ? 'contract' : 'expand'}
+                  size={20}
+                  color={theme.colors.text}
+                />
+              </Pressable>
+            )}
+            {showSidebarControls && onCollapse && !isFullscreen && (
+              <Pressable
+                onPress={onCollapse}
+                style={styles.headerButton}
+              >
+                <Octicons
+                  name="sidebar-collapse"
+                  size={20}
+                  color={theme.colors.text}
+                />
+              </Pressable>
+            )}
           </View>
         </View>
 
@@ -100,12 +134,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  iconButton: {
-    width: 40,
-    height: 40,
+  headerButton: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
   },
   filters: {
     flexDirection: 'row',
