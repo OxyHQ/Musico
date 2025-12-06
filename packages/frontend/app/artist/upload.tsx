@@ -28,8 +28,10 @@ interface FormErrors {
   title?: string;
   artistId?: string;
   duration?: string;
+  audioFile?: string;
   albumTitle?: string;
   releaseDate?: string;
+  coverArt?: string;
 }
 
 const TITLE_MAX_LENGTH = 100;
@@ -86,17 +88,8 @@ const ArtistUploadScreen: React.FC = () => {
   const [albumErrors, setAlbumErrors] = useState<FormErrors>({});
   const [userAlbums, setUserAlbums] = useState<Album[]>([]);
 
-  useEffect(() => {
-    loadArtistProfile();
-  }, []);
-
-  useEffect(() => {
-    if (artist) {
-      loadAlbums();
-    }
-  }, [artist]);
-
-  const loadArtistProfile = async () => {
+  // Define load functions before useEffect hooks that use them
+  const loadArtistProfile = useCallback(async () => {
     try {
       setLoading(true);
       const profile = await artistService.getMyArtistProfile();
@@ -113,9 +106,9 @@ const ArtistUploadScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
 
-  const loadAlbums = async () => {
+  const loadAlbums = useCallback(async () => {
     if (!artist) return;
     try {
       const result = await musicService.getArtistAlbums(artist.id);
@@ -123,7 +116,17 @@ const ArtistUploadScreen: React.FC = () => {
     } catch (error) {
       console.error('Failed to load albums:', error);
     }
-  };
+  }, [artist]);
+
+  useEffect(() => {
+    loadArtistProfile();
+  }, [loadArtistProfile]);
+
+  useEffect(() => {
+    if (artist) {
+      loadAlbums();
+    }
+  }, [artist, loadAlbums]);
 
   const handlePickAudioFile = useCallback(() => {
     if (Platform.OS === 'web') {
@@ -143,6 +146,10 @@ const ArtistUploadScreen: React.FC = () => {
             type: file.type || 'audio/mpeg',
             file: file, // Store file object for upload
           });
+          // Clear audio file error if present
+          if (songErrors.audioFile) {
+            setSongErrors((prev) => ({ ...prev, audioFile: undefined }));
+          }
         }
       };
       input.click();
@@ -158,10 +165,10 @@ const ArtistUploadScreen: React.FC = () => {
 
   // Sync blob URL with audioFile state
   useEffect(() => {
-    if (audioBlobUrl && audioFile) {
+    if (audioBlobUrl && audioFile && audioFile.uri !== audioBlobUrl) {
       setAudioFile((prev) => prev ? { ...prev, uri: audioBlobUrl } : null);
     }
-  }, [audioBlobUrl, audioFile]);
+  }, [audioBlobUrl]); // Only depend on audioBlobUrl to avoid infinite loop
 
   const validateSongForm = (): boolean => {
     const errors: FormErrors = {};
@@ -172,7 +179,7 @@ const ArtistUploadScreen: React.FC = () => {
       errors.artistId = 'Artist profile not found';
     }
     if (!audioFile) {
-      errors.title = 'Audio file is required';
+      errors.audioFile = 'Audio file is required';
     }
     const durationNum = parseFloat(songDuration);
     if (!songDuration || isNaN(durationNum) || durationNum <= 0) {
@@ -191,7 +198,7 @@ const ArtistUploadScreen: React.FC = () => {
       errors.releaseDate = 'Release date is required';
     }
     if (!albumCoverArt) {
-      errors.albumTitle = 'Cover art is required';
+      errors.coverArt = 'Cover art is required';
     }
     if (!artist) {
       errors.artistId = 'Artist profile not found';
@@ -438,7 +445,11 @@ const ArtistUploadScreen: React.FC = () => {
                     styles.filePickerButton,
                     {
                       backgroundColor: theme.colors.backgroundSecondary,
-                      borderColor: audioFile ? theme.colors.primary : theme.colors.border,
+                      borderColor: songErrors.audioFile
+                        ? theme.colors.error
+                        : audioFile
+                        ? theme.colors.primary
+                        : theme.colors.border,
                     },
                   ]}
                 >
@@ -451,6 +462,11 @@ const ArtistUploadScreen: React.FC = () => {
                     {audioFile ? audioFile.name : 'Select Audio File'}
                   </Text>
                 </Pressable>
+                {songErrors.audioFile && (
+                  <Text style={[styles.errorText, { color: theme.colors.error }]}>
+                    {songErrors.audioFile}
+                  </Text>
+                )}
                 {isUploading && uploadProgress > 0 && (
                   <View style={styles.progressContainer}>
                     <View
@@ -782,13 +798,18 @@ const ArtistUploadScreen: React.FC = () => {
                 </Text>
                 <CoverArtPicker
                   value={albumCoverArt || undefined}
-                  onChange={setAlbumCoverArt}
+                  onChange={(value) => {
+                    setAlbumCoverArt(value);
+                    if (albumErrors.coverArt) {
+                      setAlbumErrors((prev) => ({ ...prev, coverArt: undefined }));
+                    }
+                  }}
                   size={200}
                   disabled={isUploading}
                 />
-                {albumErrors.albumTitle && albumErrors.albumTitle.includes('Cover art') && (
+                {albumErrors.coverArt && (
                   <Text style={[styles.errorText, { color: theme.colors.error }]}>
-                    Cover art is required
+                    {albumErrors.coverArt}
                   </Text>
                 )}
               </View>

@@ -21,7 +21,7 @@ const ArtistSchema = new Schema<IArtist>({
   verified: { type: Boolean, default: false, index: true },
   popularity: { type: Number, default: 0, min: 0, max: 100 },
   dominantColor: { type: String },
-  ownerOxyUserId: { type: String, index: true }, // Link artist to user
+  ownerOxyUserId: { type: String }, // Link artist to user
   stats: { type: ArtistStatsSchema, default: () => ({
     followers: 0,
     albums: 0,

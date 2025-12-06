@@ -15,7 +15,7 @@ const PlaylistCollaboratorSchema = new Schema<PlaylistCollaborator>({
 const PlaylistSchema = new Schema<IPlaylist>({
   name: { type: String, required: true, index: true },
   description: { type: String },
-  ownerOxyUserId: { type: String, required: true, index: true },
+  ownerOxyUserId: { type: String, required: true },
   ownerUsername: { type: String, required: true },
   coverArt: { type: String },
   visibility: { type: String, enum: Object.values(PlaylistVisibility), default: PlaylistVisibility.PRIVATE, index: true },
