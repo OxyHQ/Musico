@@ -9,35 +9,10 @@ import { searchService } from '@/services/searchService';
 import { browseService, Genre } from '@/services/browseService';
 import { MediaCard } from '@/components/MediaCard';
 import { GenreCard } from '@/components/GenreCard';
+import { TrackRow } from '@/components/TrackRow';
+import { ExploreSection } from '@/components/ExploreSection';
 import { usePlayerStore } from '@/stores/playerStore';
-
-/**
- * Format duration in seconds to MM:SS format
- */
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
-
-/**
- * Debounce hook
- */
-const useDebounce = (value: string, delay: number) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-};
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 /**
  * Musico Search Screen
@@ -63,7 +38,7 @@ const SearchScreen: React.FC = () => {
   const [exploreLoading, setExploreLoading] = useState(false);
 
   // Debounce search query
-  const debouncedQuery = useDebounce(searchQuery, 300);
+  const debouncedQuery = useDebouncedValue(searchQuery, 300);
 
   // Fetch explore data when query is empty
   useEffect(() => {

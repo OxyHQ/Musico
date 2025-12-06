@@ -41,6 +41,16 @@ const SettingsScreen: React.FC = () => {
   const appVersion = Constants.expoConfig?.version || '2.0.0';
   const currentLanguage = i18n.language || 'en-US';
 
+  // Handle user name (can be object or string)
+  const userName = user?.name
+    ? typeof user.name === 'string'
+      ? user.name
+      : (user.name as any)?.full || 
+        ((user.name as any)?.first 
+          ? `${(user.name as any).first} ${(user.name as any).last || ''}`.trim()
+          : '')
+    : user?.username || 'User';
+
   // Handle language change
   const handleLanguageChange = async (language: string) => {
     try {
@@ -151,7 +161,7 @@ const SettingsScreen: React.FC = () => {
             />
             <View style={styles.profileInfo}>
               <Text style={[styles.profileName, { color: theme.colors.text }]}>
-                {user?.name || user?.username || 'User'}
+                {userName}
               </Text>
               <Text style={[styles.profileEmail, { color: theme.colors.textSecondary }]}>
                 {user?.email || ''}
