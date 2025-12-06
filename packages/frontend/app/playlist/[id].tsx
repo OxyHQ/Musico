@@ -78,6 +78,39 @@ const PlaylistScreen: React.FC = () => {
     };
   });
 
+  // Animated style for title in header - fades out as you scroll
+  const headerTitleAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollOffset.value,
+      [0, HEADER_HEIGHT - 100, HEADER_HEIGHT - 50],
+      [1, 0.3, 0],
+      'clamp'
+    );
+    return {
+      opacity,
+    };
+  });
+
+  // Animated style for sticky header - fades in as you scroll
+  const stickyHeaderAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollOffset.value,
+      [HEADER_HEIGHT - 100, HEADER_HEIGHT - 50],
+      [0, 1],
+      'clamp'
+    );
+    const translateY = interpolate(
+      scrollOffset.value,
+      [HEADER_HEIGHT - 100, HEADER_HEIGHT - 50],
+      [-20, 0],
+      'clamp'
+    );
+    return {
+      opacity,
+      transform: [{ translateY }],
+    };
+  });
+
   // Helper function to convert hex color to RGB
   const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -145,12 +178,73 @@ const PlaylistScreen: React.FC = () => {
         description={playlist.description || `Listen to ${playlist.name}`}
       />
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        {/* Sticky Header */}
+        <Animated.View 
+          style={[
+            styles.stickyHeader,
+            { 
+              backgroundColor: theme.colors.background,
+              borderBottomColor: theme.colors.backgroundSecondary,
+            },
+            stickyHeaderAnimatedStyle
+          ]}
+          pointerEvents="box-none"
+        >
+          <View style={styles.stickyHeaderContent}>
+            {/* Left side - Back button */}
+            <Pressable
+              onPress={() => router.back()}
+              style={styles.stickyHeaderButton}
+            >
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </Pressable>
+
+            {/* Center - Title and cover art */}
+            <View style={styles.stickyHeaderCenter}>
+              {playlist.coverArt && (
+                <Image
+                  source={{ uri: playlist.coverArt }}
+                  style={styles.stickyHeaderImage}
+                  resizeMode="cover"
+                />
+              )}
+              <Text style={[styles.stickyHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                {playlist.name}
+              </Text>
+            </View>
+
+            {/* Right side - Controls */}
+            <View style={styles.stickyHeaderControls}>
+              <Pressable
+                style={styles.stickyHeaderControlButton}
+                onPress={handlePlayPlaylist}
+              >
+                <Ionicons name="play" size={20} color={theme.colors.text} />
+              </Pressable>
+              <Pressable
+                style={styles.stickyHeaderControlButton}
+                onPress={() => setIsLiked(!isLiked)}
+              >
+                <Ionicons
+                  name={isLiked ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isLiked ? theme.colors.primary : theme.colors.text}
+                />
+              </Pressable>
+              <Pressable style={styles.stickyHeaderControlButton}>
+                <Ionicons name="ellipsis-horizontal" size={20} color={theme.colors.text} />
+              </Pressable>
+            </View>
+          </View>
+        </Animated.View>
+
         <Animated.ScrollView
           ref={scrollRef}
           scrollEventThrottle={16}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
         >
           {/* Parallax Header Section */}
           <Animated.View style={[styles.headerContainer, headerAnimatedStyle]}>
@@ -165,14 +259,18 @@ const PlaylistScreen: React.FC = () => {
                 <Ionicons name="musical-notes" size={80} color={theme.colors.textSecondary} />
               </View>
             )}
-            {/* Dark overlay for text readability */}
-            <View style={styles.headerOverlay} />
+            {/* Gradient overlay for text readability */}
+            <LinearGradient
+              colors={['transparent', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}
+              locations={[0, 0.6, 1]}
+              style={styles.headerOverlay}
+            />
             {/* Playlist Title */}
-            <View style={styles.titleContainer}>
+            <Animated.View style={[styles.titleContainer, headerTitleAnimatedStyle]}>
               <Text style={[styles.playlistTitle, { color: '#FFFFFF' }]} numberOfLines={2}>
                 {playlist.name}
               </Text>
-            </View>
+            </Animated.View>
           </Animated.View>
 
           {/* Content Section with Gradient Background */}
@@ -183,39 +281,53 @@ const PlaylistScreen: React.FC = () => {
           >
             {/* Playlist Info */}
             <View style={styles.infoContainer}>
-              {playlist.description && (
-                <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2}>
-                  {playlist.description}
-                </Text>
-              )}
-              <View style={styles.metadataRow}>
-                <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
-                  {playlist.ownerUsername}
-                </Text>
-                {playlist.trackCount > 0 && (
-                  <>
-                  <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
-                  <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
-                    {playlist.trackCount} {playlist.trackCount === 1 ? 'song' : 'songs'}
+              <View style={styles.infoHeader}>
+                {playlist.coverArt && (
+                  <Image
+                    source={{ uri: playlist.coverArt }}
+                    style={styles.infoCoverImage}
+                    resizeMode="cover"
+                  />
+                )}
+                <View style={styles.infoTextContainer}>
+                  <Text style={[styles.infoTitle, { color: theme.colors.text }]} numberOfLines={1}>
+                    {playlist.name}
                   </Text>
-                  {totalDurationFormatted && (
-                    <>
+                  {playlist.description && (
+                    <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                      {playlist.description}
+                    </Text>
+                  )}
+                  <View style={styles.metadataRow}>
+                    <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
+                      {playlist.ownerUsername}
+                    </Text>
+                    {playlist.trackCount > 0 && (
+                      <>
                       <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
                       <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
-                        {totalDurationFormatted}
+                        {playlist.trackCount} {playlist.trackCount === 1 ? 'song' : 'songs'}
                       </Text>
-                    </>
-                  )}
-                  </>
-                )}
-                {playlist.followers !== undefined && playlist.followers > 0 && (
-                  <>
-                    <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
-                    <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
-                      {playlist.followers.toLocaleString()} {playlist.followers === 1 ? 'save' : 'saves'}
-                    </Text>
-                  </>
-                )}
+                      {totalDurationFormatted && (
+                        <>
+                          <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
+                          <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
+                            {totalDurationFormatted}
+                          </Text>
+                        </>
+                      )}
+                      </>
+                    )}
+                    {playlist.followers !== undefined && playlist.followers > 0 && (
+                      <>
+                        <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
+                        <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
+                          {playlist.followers.toLocaleString()} {playlist.followers === 1 ? 'save' : 'saves'}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                </View>
               </View>
             </View>
 
@@ -225,11 +337,16 @@ const PlaylistScreen: React.FC = () => {
                 style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
                 onPress={handlePlayPlaylist}
               >
-                <Ionicons name="play" size={28} color="#000" />
+                <Ionicons name="play" size={24} color="#000" />
               </Pressable>
 
-              <Pressable style={styles.controlButton}>
-                <Ionicons name="shuffle" size={20} color={theme.colors.text} />
+              <Pressable 
+                style={styles.controlButton}
+                onPress={() => {
+                  // Shuffle functionality
+                }}
+              >
+                <Ionicons name="shuffle" size={22} color={theme.colors.text} />
               </Pressable>
 
               <Pressable
@@ -239,7 +356,7 @@ const PlaylistScreen: React.FC = () => {
                 <Ionicons
                   name={isLiked ? "heart" : "heart-outline"}
                   size={24}
-                  color={isLiked ? theme.colors.primary : theme.colors.text}
+                  color={isLiked ? '#1DB954' : theme.colors.text}
                 />
               </Pressable>
 
@@ -309,12 +426,83 @@ const PlaylistScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    marginTop: 0,
+    paddingTop: 0,
+  },
+  stickyHeader: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 64,
+    zIndex: 1000,
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    ...Platform.select({
+      web: {
+        position: 'sticky' as any,
+      },
+    }),
+  },
+  stickyHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    height: '100%',
+  },
+  stickyHeaderButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
+  },
+  stickyHeaderCenter: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+    marginHorizontal: 8,
+  },
+  stickyHeaderImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+  },
+  stickyHeaderTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: -0.3,
+    flex: 1,
+  },
+  stickyHeaderControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stickyHeaderControlButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 100,
+    paddingTop: 0,
   },
   loadingContainer: {
     flex: 1,
@@ -335,6 +523,8 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
     position: 'relative',
+    marginTop: 0,
+    marginBottom: 0,
   },
   headerImage: {
     width: '100%',
@@ -348,7 +538,6 @@ const styles = StyleSheet.create({
   },
   headerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   titleContainer: {
     position: 'absolute',
@@ -356,27 +545,49 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 24,
-    paddingBottom: 32,
+    paddingBottom: 16,
   },
   playlistTitle: {
-    fontSize: 72,
-    fontWeight: 'bold',
-    letterSpacing: -1,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    fontSize: 96,
+    fontWeight: '900',
+    letterSpacing: -2,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
     textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowRadius: 8,
+    lineHeight: 96,
   },
   contentSection: {
-    paddingTop: 24,
+    paddingTop: 0,
     minHeight: '100%',
   },
   infoContainer: {
     paddingHorizontal: 24,
-    paddingBottom: 16,
+    paddingTop: 24,
+    paddingBottom: 24,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'flex-start',
+  },
+  infoCoverImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 4,
+  },
+  infoTextContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+  infoTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
   description: {
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: 12,
     lineHeight: 20,
   },
   metadataRow: {
@@ -395,8 +606,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 12,
-    gap: 12,
+    paddingBottom: 24,
+    gap: 16,
   },
   playButton: {
     width: 56,
@@ -405,13 +616,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'transform 0.2s',
+      },
+    }),
   },
   controlButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 20,
     ...Platform.select({
       web: {
         cursor: 'pointer',
+        transition: 'transform 0.2s, background-color 0.2s',
       },
     }),
   },
