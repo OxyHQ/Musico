@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { StyleSheet, View, ScrollView, Text, Pressable, Image, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Image, ActivityIndicator, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
   interpolate,
@@ -28,7 +28,7 @@ const PlaylistScreen: React.FC = () => {
   const router = useRouter();
   const theme = useTheme();
   const { playTrack, currentTrack, isPlaying } = usePlayerStore();
-  
+
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,8 +131,8 @@ const PlaylistScreen: React.FC = () => {
   };
 
   // Get gradient colors from playlist dominantColor or fallback to theme primary
-  const getGradientColors = (): string[] => {
-    const topColor = playlist?.dominantColor 
+  const getGradientColors = (): [string, string] => {
+    const topColor = playlist?.dominantColor
       ? playlist.dominantColor
       : theme.colors.primary;
     return [topColor, theme.colors.background];
@@ -179,10 +179,10 @@ const PlaylistScreen: React.FC = () => {
       />
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         {/* Sticky Header */}
-        <Animated.View 
+        <Animated.View
           style={[
             styles.stickyHeader,
-            { 
+            {
               backgroundColor: theme.colors.background,
               borderBottomColor: theme.colors.backgroundSecondary,
             },
@@ -261,8 +261,8 @@ const PlaylistScreen: React.FC = () => {
             )}
             {/* Gradient overlay for text readability */}
             <LinearGradient
-              colors={['transparent', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)']}
-              locations={[0, 0.6, 1]}
+              colors={['transparent', 'rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.7)'] as readonly [string, string, string]}
+              locations={[0, 0.6, 1] as readonly [number, number, number]}
               style={styles.headerOverlay}
             />
             {/* Playlist Title */}
@@ -290,9 +290,6 @@ const PlaylistScreen: React.FC = () => {
                   />
                 )}
                 <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoTitle, { color: theme.colors.text }]} numberOfLines={1}>
-                    {playlist.name}
-                  </Text>
                   {playlist.description && (
                     <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2}>
                       {playlist.description}
@@ -304,18 +301,18 @@ const PlaylistScreen: React.FC = () => {
                     </Text>
                     {playlist.trackCount > 0 && (
                       <>
-                      <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
-                      <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
-                        {playlist.trackCount} {playlist.trackCount === 1 ? 'song' : 'songs'}
-                      </Text>
-                      {totalDurationFormatted && (
-                        <>
-                          <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
-                          <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
-                            {totalDurationFormatted}
-                          </Text>
-                        </>
-                      )}
+                        <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
+                        <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
+                          {playlist.trackCount} {playlist.trackCount === 1 ? 'song' : 'songs'}
+                        </Text>
+                        {totalDurationFormatted && (
+                          <>
+                            <Text style={[styles.metadataSeparator, { color: theme.colors.textSecondary }]}>•</Text>
+                            <Text style={[styles.metadata, { color: theme.colors.textSecondary }]}>
+                              {totalDurationFormatted}
+                            </Text>
+                          </>
+                        )}
                       </>
                     )}
                     {playlist.followers !== undefined && playlist.followers > 0 && (
@@ -337,10 +334,12 @@ const PlaylistScreen: React.FC = () => {
                 style={[styles.playButton, { backgroundColor: theme.colors.primary }]}
                 onPress={handlePlayPlaylist}
               >
-                <Ionicons name="play" size={24} color="#000" />
+                <View style={styles.playButtonInner}>
+                  <Ionicons name="play" size={24} color="#000" />
+                </View>
               </Pressable>
 
-              <Pressable 
+              <Pressable
                 style={styles.controlButton}
                 onPress={() => {
                   // Shuffle functionality
@@ -400,7 +399,7 @@ const PlaylistScreen: React.FC = () => {
                 tracks.map((track, index) => {
                   const isCurrentTrack = currentTrack?.id === track.id;
                   const isTrackPlaying = isCurrentTrack && isPlaying;
-                  
+
                   return (
                     <TrackRow
                       key={track.id}
@@ -579,12 +578,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  infoTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
   description: {
     fontSize: 14,
     marginBottom: 12,
@@ -621,12 +614,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+    overflow: 'hidden',
     ...Platform.select({
       web: {
         cursor: 'pointer',
         transition: 'transform 0.2s',
+        ':hover': {
+          transform: 'scale(1.05)',
+        },
       },
     }),
+  },
+  playButtonInner: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 28,
   },
   controlButton: {
     width: 40,
