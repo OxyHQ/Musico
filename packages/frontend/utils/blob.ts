@@ -86,3 +86,53 @@ export function getBlobInfo(blob: Blob): { size: number; type: string } {
   };
 }
 
+/**
+ * Check if a string is a blob URL
+ */
+export function isBlobUrl(url: string): boolean {
+  return typeof url === 'string' && url.startsWith('blob:');
+}
+
+/**
+ * Create a blob URL from a File or Blob object using expo-blob
+ * Works on both web and native platforms
+ * 
+ * @param fileOrBlob - File or Blob object (expo-blob Blob works on all platforms)
+ * @param originalUri - Fallback URI if blob URL creation fails or on unsupported platforms
+ * @returns Blob URL when supported, otherwise original URI
+ */
+export function createBlobUrl(fileOrBlob: File | Blob, originalUri?: string): string {
+  // URL.createObjectURL is available on web platforms
+  if (typeof window !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL) {
+    try {
+      return URL.createObjectURL(fileOrBlob);
+    } catch (error) {
+      console.error('Failed to create blob URL:', error);
+      return originalUri || '';
+    }
+  }
+  
+  // On native or unsupported platforms, return original URI
+  return originalUri || '';
+}
+
+/**
+ * Revoke a blob URL to free memory
+ * Safe to call on non-blob URLs or on any platform
+ * 
+ * @param url - Blob URL to revoke
+ */
+export function revokeBlobUrl(url: string | null | undefined): void {
+  if (!url || typeof window === 'undefined' || typeof URL === 'undefined' || !URL.revokeObjectURL) {
+    return;
+  }
+  
+  if (isBlobUrl(url)) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to revoke blob URL:', error);
+    }
+  }
+}
+

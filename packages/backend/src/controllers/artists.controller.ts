@@ -114,6 +114,54 @@ export const getArtistAlbums = async (req: Request, res: Response, next: NextFun
 };
 
 /**
+ * GET /api/artists/:id/tracks
+ * Get artist tracks
+ */
+export const getArtistTracks = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!isDatabaseConnected()) {
+      return res.status(503).json({ error: 'Database not available' });
+    }
+
+    const { id } = req.params;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Artist not found' });
+    }
+    
+    // Verify artist exists
+    const artist = await ArtistModel.findById(id).lean();
+    if (!artist) {
+      return res.status(404).json({ error: 'Artist not found' });
+    }
+
+    // Fetch tracks for this artist, sorted by popularity then date
+    const [tracks, total] = await Promise.all([
+      TrackModel.find({ artistId: id, isAvailable: true })
+        .sort({ popularity: -1, createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .lean(),
+      TrackModel.countDocuments({ artistId: id, isAvailable: true }),
+    ]);
+
+    const formattedTracks = toApiFormatArray(tracks);
+
+    res.json({
+      tracks: formattedTracks,
+      total,
+      hasMore: offset + limit < total,
+      artistId: id,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * POST /api/artists/:id/follow
  * Follow artist (requires auth)
  */

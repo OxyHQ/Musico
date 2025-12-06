@@ -55,6 +55,11 @@ export const musicService = {
     return response.data;
   },
 
+  async getArtistTracks(artistId: string, params?: { limit?: number; offset?: number }): Promise<{ tracks: Track[]; total: number; hasMore: boolean }> {
+    const response = await api.get<{ tracks: Track[]; total: number; hasMore: boolean }>(`/artists/${artistId}/tracks`, params);
+    return response.data;
+  },
+
   async followArtist(artistId: string): Promise<{ success: boolean }> {
     const response = await api.post<{ success: boolean }>(`/artists/${artistId}/follow`);
     return response.data;

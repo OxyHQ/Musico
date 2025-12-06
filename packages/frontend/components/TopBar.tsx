@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, Pressable, Platform, ViewStyle } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
@@ -7,6 +7,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Avatar from './Avatar';
 import { Logo } from './Logo';
 import { useMediaQuery } from 'react-responsive';
+import { artistService } from '@/services/artistService';
+import { Artist } from '@musico/shared-types';
 /**
  * Top Navigation Bar Component
  * Spotify-like top bar with logo, navigation, search, and user controls
@@ -17,8 +19,27 @@ export const TopBar: React.FC = () => {
   const theme = useTheme();
   const { user, isAuthenticated, oxyServices, showBottomSheet } = useOxy();
   const isMobile = useMediaQuery({ maxWidth: 767 });
+  const [artistProfile, setArtistProfile] = useState<Artist | null>(null);
   
   const avatarUri = user?.avatar ? oxyServices.getFileDownloadUrl(user.avatar as string, 'thumb') : undefined;
+
+  // Check if user has an artist profile
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      artistService.getMyArtistProfile()
+        .then((artist) => {
+          console.log('[TopBar] Artist profile loaded:', artist);
+          setArtistProfile(artist);
+        })
+        .catch((error) => {
+          console.log('[TopBar] No artist profile or error:', error?.response?.status || error?.message);
+          // User doesn't have an artist profile, which is fine
+          setArtistProfile(null);
+        });
+    } else {
+      setArtistProfile(null);
+    }
+  }, [isAuthenticated, user]);
 
   const handleHome = () => {
     router.push('/');
@@ -30,6 +51,10 @@ export const TopBar: React.FC = () => {
 
   const handleLibrary = () => {
     router.push('/library');
+  };
+
+  const handleDashboard = () => {
+    router.push('/artist/dashboard');
   };
 
   return (
@@ -88,6 +113,18 @@ export const TopBar: React.FC = () => {
 
       {/* Right Section: Actions & Profile */}
       <View style={styles.rightSection}>
+        {artistProfile && (
+          <Pressable 
+            style={[styles.iconButton, pathname.startsWith('/artist') && styles.activeButton]}
+            onPress={handleDashboard}
+          >
+            <MaterialCommunityIcons 
+              name={pathname.startsWith('/artist') ? 'account-music' : 'account-music-outline'} 
+              size={24} 
+              color={pathname.startsWith('/artist') ? theme.colors.primary : theme.colors.text} 
+            />
+          </Pressable>
+        )}
         <Pressable style={styles.iconButton}>
           <MaterialCommunityIcons name="download-outline" size={24} color={theme.colors.text} />
         </Pressable>

@@ -23,10 +23,14 @@ export const artistService = {
       const response = await api.get<Artist>('/artists/me');
       return response.data;
     } catch (error: any) {
-      if (error?.response?.status === 404) {
+      // Check for 404 or any error status
+      const status = error?.response?.status || error?.status;
+      if (status === 404) {
         return null;
       }
-      throw error;
+      // Log other errors but don't throw - return null to indicate no profile
+      console.warn('[artistService] Error fetching artist profile:', error);
+      return null;
     }
   },
 

@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import SEO from '@/components/SEO';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Artist, Album } from '@musico/shared-types';
+import { useFileBlobUrl } from '@/hooks/useBlobUrl';
 
 interface FormErrors {
   title?: string;
@@ -43,19 +44,25 @@ const ArtistUploadScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { isAuthenticated } = useOxy();
 
+  const params = useLocalSearchParams<{ tab?: string }>();
   const [activeTab, setActiveTab] = useState<'song' | 'album'>('song');
 
   // Check for tab query parameter
   useEffect(() => {
-    const params = router.getState()?.routes?.find(r => r.name === 'artist/upload')?.params;
-    if (params?.tab === 'album') {
+    if (params.tab === 'album') {
       setActiveTab('album');
+    } else if (params.tab === 'song') {
+      setActiveTab('song');
     }
-  }, [router]);
+  }, [params.tab]);
+
   const [artist, setArtist] = useState<Artist | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Blob URL management for audio file preview
+  const { url: audioBlobUrl, setFile: setAudioBlobFile, clear: clearAudioBlob } = useFileBlobUrl();
 
   // Song upload state
   const [songTitle, setSongTitle] = useState('');
@@ -64,7 +71,7 @@ const ArtistUploadScreen: React.FC = () => {
   const [songGenre, setSongGenre] = useState('');
   const [songIsExplicit, setSongIsExplicit] = useState(false);
   const [songDuration, setSongDuration] = useState('');
-  const [audioFile, setAudioFile] = useState<{ uri: string; name: string; type: string } | null>(null);
+  const [audioFile, setAudioFile] = useState<{ uri: string; name: string; type: string; file?: File } | null>(null);
   const [songErrors, setSongErrors] = useState<FormErrors>({});
 
   // Album creation state
@@ -88,15 +95,6 @@ const ArtistUploadScreen: React.FC = () => {
       loadAlbums();
     }
   }, [artist]);
-
-  // Update tab if query param changes
-  useEffect(() => {
-    if (params.tab === 'album') {
-      setActiveTab('album');
-    } else if (params.tab === 'song') {
-      setActiveTab('song');
-    }
-  }, [params.tab]);
 
   const loadArtistProfile = async () => {
     try {
@@ -136,11 +134,14 @@ const ArtistUploadScreen: React.FC = () => {
       input.onchange = (e: any) => {
         const file = e.target.files?.[0];
         if (file) {
-          const url = URL.createObjectURL(file);
+          // Use blob URL hook for proper lifecycle management
+          setAudioBlobFile(file);
+          // Store file object for upload - blob URL will be available via audioBlobUrl
           setAudioFile({
-            uri: url,
+            uri: '', // Will be set by effect below
             name: file.name,
             type: file.type || 'audio/mpeg',
+            file: file, // Store file object for upload
           });
         }
       };
@@ -153,7 +154,14 @@ const ArtistUploadScreen: React.FC = () => {
         [{ text: 'OK' }]
       );
     }
-  }, []);
+  }, [setAudioBlobFile]);
+
+  // Sync blob URL with audioFile state
+  useEffect(() => {
+    if (audioBlobUrl && audioFile) {
+      setAudioFile((prev) => prev ? { ...prev, uri: audioBlobUrl } : null);
+    }
+  }, [audioBlobUrl, audioFile]);
 
   const validateSongForm = (): boolean => {
     const errors: FormErrors = {};
@@ -212,8 +220,15 @@ const ArtistUploadScreen: React.FC = () => {
         return;
       }
 
+      // Use blob URL if available (from hook), otherwise fall back to stored URI
+      const fileForUpload = {
+        uri: audioBlobUrl || audioFile.uri,
+        name: audioFile.name,
+        type: audioFile.type,
+      };
+
       const track = await artistService.uploadTrack(
-        audioFile,
+        fileForUpload,
         {
           title: songTitle.trim(),
           artistId: artist.id,
@@ -235,6 +250,7 @@ const ArtistUploadScreen: React.FC = () => {
       setSongGenre('');
       setSongIsExplicit(false);
       setSongDuration('');
+      clearAudioBlob(); // Clean up blob URL
       setAudioFile(null);
       setUploadProgress(0);
 
@@ -246,7 +262,7 @@ const ArtistUploadScreen: React.FC = () => {
     } finally {
       setIsUploading(false);
     }
-  }, [songTitle, songAlbumId, songCoverArt, songGenre, songIsExplicit, songDuration, audioFile, artist, isAuthenticated, router]);
+  }, [songTitle, songAlbumId, songCoverArt, songGenre, songIsExplicit, songDuration, audioFile, audioBlobUrl, artist, isAuthenticated, router, clearAudioBlob]);
 
   const handleCreateAlbum = useCallback(async () => {
     if (!isAuthenticated || !artist) {

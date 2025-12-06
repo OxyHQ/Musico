@@ -30,6 +30,11 @@ function rgbToHex(r: number, g: number, b: number): string {
  */
 async function downloadImage(url: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
+    // Skip blob URLs - they're temporary local URLs and can't be downloaded
+    if (url.startsWith('blob:')) {
+      return reject(new Error('Blob URLs are not supported for color extraction'));
+    }
+
     // Security check
     const securityCheck = validateUrlSecurity(url);
     if (!securityCheck.valid) {

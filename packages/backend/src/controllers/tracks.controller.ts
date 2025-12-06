@@ -249,9 +249,9 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
         });
       }
 
-      // Extract dominant color from cover art if provided
+      // Extract dominant color from cover art if provided (skip blob URLs)
       let dominantColor: string | undefined;
-      if (coverArt) {
+      if (coverArt && !coverArt.startsWith('blob:')) {
         try {
           dominantColor = await extractDominantColor(coverArt);
         } catch (error) {
@@ -259,8 +259,12 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
         }
       }
 
-      // Create track record
+      // Generate track ID first so we can create the audio URL
+      const trackId = new mongoose.Types.ObjectId();
+
+      // Create track record with proper audio URL
       const track = new TrackModel({
+        _id: trackId,
         title,
         artistId: artistId,
         artistName: artist.name,
@@ -268,7 +272,7 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
         albumName: album?.title,
         duration: durationNum,
         audioSource: {
-          url: '', // Will be set after upload
+          url: `/api/audio/${trackId.toString()}`,
           format,
         },
         coverArt: coverArt || undefined,
@@ -282,14 +286,11 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
         popularity: 0,
       });
 
-      await track.save();
+      // Upload audio file to S3 first
+      const trackForUpload = toApiFormat(track);
+      await uploadTrackAudio(trackForUpload, file.buffer);
 
-      // Upload audio file to S3
-      const trackFormatted = toApiFormat(track);
-      await uploadTrackAudio(trackFormatted, file.buffer);
-
-      // Update track with audio URL
-      track.audioSource.url = `/api/audio/${track._id.toString()}`;
+      // Save track after successful upload
       await track.save();
 
       // Update artist stats
