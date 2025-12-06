@@ -1,10 +1,10 @@
-# @mention/shared-types
+# @musico/shared-types
 
-Shared TypeScript types for the Mention social network platform. This package contains all the interfaces, enums, and types that are shared between the frontend and backend applications to ensure type consistency.
+Shared TypeScript types for the Musico music streaming platform. This package contains all the interfaces, enums, and types that are shared between the frontend and backend applications to ensure type consistency.
 
 ## Overview
 
-Mention is a Twitter-like social network where users can create posts (instead of tweets), interact with content, and build communities. This package provides comprehensive type definitions for all core functionality.
+Musico is a modern music streaming platform inspired by Spotify, where users can discover, stream, and organize music. This package provides comprehensive type definitions for all core music streaming functionality including songs, playlists, artists, albums, and user libraries.
 
 ## Architecture
 
@@ -15,105 +15,91 @@ The platform uses **Oxy** for user authentication and user data management. All 
 ```
 src/
 ├── common.ts          # Common utility types and enums
-├── profile.ts         # Profile-related types
-├── post.ts           # Post (tweet) types
-├── interaction.ts    # User interaction types (likes, reposts, etc.)
-├── feed.ts          # Feed and timeline types
-├── media.ts         # Media content types
-├── notification.ts  # Notification system types
-├── list.ts          # User list types
-├── analytics.ts     # Analytics and metrics types
-└── index.ts         # Main export file
+├── song.ts           # Song and track types
+├── playlist.ts       # Playlist types
+├── artist.ts         # Artist types
+├── album.ts          # Album types
+├── library.ts        # User library types
+├── search.ts         # Search and discovery types
+├── playback.ts       # Audio playback types
+├── media.ts          # Media content types
+└── index.ts          # Main export file
 ```
 
 ## Core Types
 
-### Profile Types (`profile.ts`)
+### Song Types (`song.ts`)
 
-- **Profile**: Main profile interface linked to Oxy users
-- **ProfileType**: Personal, Business, Creator, Verified
-- **ProfileVisibility**: Public, Private, Followers Only
-- **PersonalInfo**: Bio, display name, username, avatar, etc.
-- **ProfileSettings**: Notification and privacy settings
+- **Song**: Main song interface with metadata
+- **SongMetadata**: Title, artist, album, duration, genre
+- **AudioSource**: Audio file URL, format, bitrate
+- **SongStatus**: Available, Processing, Unavailable
 
-### Post Types (`post.ts`)
+### Playlist Types (`playlist.ts`)
 
-- **Post**: Main post interface (equivalent to tweets)
-- **PostType**: Text, Image, Video, Poll, Repost, Quote
-- **PostContent**: Text, images, videos, polls, location
-- **PostVisibility**: Public, Followers Only, Private
-- **PollData**: Poll questions, options, and voting data
+- **Playlist**: Main playlist interface
+- **PlaylistType**: User Created, System Generated, Collaborative
+- **PlaylistVisibility**: Public, Private, Unlisted
+- **PlaylistItem**: Song reference with position and added date
+- **PlaylistMetadata**: Name, description, cover image, track count
 
-### Interaction Types (`interaction.ts`)
+### Artist Types (`artist.ts`)
 
-- **Interaction**: Generic interaction interface
-- **Like**: Post/comment likes
-- **Repost**: Repost and quote functionality
-- **Comment**: Nested comment system
-- **Follow**: User following relationships
-- **Block/Mute**: User blocking and muting
-- **Bookmark**: Post bookmarking
-- **Report**: Content reporting system
+- **Artist**: Main artist interface
+- **ArtistMetadata**: Name, bio, image, genres
+- **ArtistStats**: Follower count, play count, album count
 
-### Feed Types (`feed.ts`)
+### Album Types (`album.ts`)
 
-- **Feed**: Generic feed interface
-- **FeedType**: Home, Explore, Trending, User Profile, etc.
-- **FeedAlgorithm**: Chronological, Relevance, Engagement, Personalized
-- **TimelineFeed**: Home timeline feeds
-- **ExploreFeed**: Discovery and trending feeds
-- **SearchFeed**: Search results feeds
+- **Album**: Main album interface
+- **AlbumMetadata**: Title, artist, release date, cover art
+- **AlbumType**: Album, EP, Single, Compilation
+- **TrackListing**: Ordered list of songs
+
+### Library Types (`library.ts`)
+
+- **UserLibrary**: User's music library
+- **LibraryItem**: Songs, albums, artists saved by user
+- **LibrarySection**: Recently Played, Liked Songs, etc.
+- **LibraryStats**: Total songs, albums, playlists count
+
+### Search Types (`search.ts`)
+
+- **SearchQuery**: Search parameters
+- **SearchResult**: Unified search results
+- **SearchType**: Songs, Artists, Albums, Playlists
+- **SearchFilters**: Genre, year, duration filters
+
+### Playback Types (`playback.ts`)
+
+- **PlaybackState**: Playing, Paused, Stopped, Loading
+- **PlaybackQueue**: Current queue of songs
+- **PlaybackHistory**: Recently played songs
+- **PlaybackControls**: Play, pause, skip, shuffle, repeat
 
 ### Media Types (`media.ts`)
 
 - **Media**: Generic media interface
-- **MediaType**: Image, Video, Audio, GIF, Document
-- **ImageMedia**: Image-specific metadata and EXIF data
-- **VideoMedia**: Video metadata, codecs, dimensions
-- **AudioMedia**: Audio metadata and properties
-- **MediaProcessingJob**: Media processing and optimization
-
-### Notification Types (`notification.ts`)
-
-- **Notification**: Generic notification interface
-- **NotificationType**: Like, Repost, Comment, Follow, Mention, etc.
-- **NotificationPriority**: Low, Normal, High, Urgent
-- **NotificationPreferences**: User notification settings
-- **Specific notification types**: LikeNotification, FollowNotification, etc.
-
-### List Types (`list.ts`)
-
-- **List**: User-created lists (like Twitter lists)
-- **ListVisibility**: Public, Private
-- **ListType**: User, Topic, Curated
-- **ListMember**: List membership
-- **ListSubscriber**: List following
-
-### Analytics Types (`analytics.ts`)
-
-- **AnalyticsData**: Generic analytics data points
-- **UserAnalytics**: User-specific metrics and insights
-- **PostAnalytics**: Post performance metrics
-- **AudienceAnalytics**: Follower demographics and behavior
-- **PlatformAnalytics**: Platform-wide statistics
+- **MediaType**: Audio, Image, Video
+- **AudioMedia**: Audio-specific metadata (format, bitrate, duration)
+- **ImageMedia**: Image metadata (cover art, artist images)
 
 ## Key Features
 
 ### Oxy Integration
 All user-related data is linked to Oxy users via `oxyUserId` fields:
-- Profiles are linked to Oxy users
-- Posts are authored by Oxy users
-- Interactions are performed by Oxy users
-- Notifications are sent to Oxy users
+- User libraries are linked to Oxy users
+- Playlists are created by Oxy users
+- Playback history is tracked per Oxy user
 
-### Comprehensive Social Features
-- **Posts**: Text, images, videos, polls, location sharing
-- **Interactions**: Likes, reposts, comments, follows, blocks, mutes
-- **Feeds**: Multiple feed types with different algorithms
-- **Media**: Rich media support with processing
-- **Notifications**: Comprehensive notification system
-- **Lists**: User-curated lists for organizing follows
-- **Analytics**: Detailed metrics and insights
+### Comprehensive Music Features
+- **Songs**: Complete song metadata and audio sources
+- **Playlists**: User-created and system playlists
+- **Artists**: Artist profiles with discography
+- **Albums**: Album information with track listings
+- **Library**: User's personal music library
+- **Search**: Powerful search across all music content
+- **Playback**: Audio playback state and queue management
 
 ### Production Ready
 - **Type Safety**: Full TypeScript support with strict typing
@@ -127,47 +113,56 @@ All user-related data is linked to Oxy users via `oxyUserId` fields:
 ### Installation
 
 ```bash
-npm install @mention/shared-types
+npm install @musico/shared-types
 ```
 
 ### Import Types
 
 ```typescript
 import { 
-  Post, 
-  Profile, 
-  InteractionType, 
-  FeedType,
-  NotificationType 
-} from '@mention/shared-types';
+  Song, 
+  Playlist, 
+  Artist, 
+  Album,
+  PlaybackState,
+  SearchResult 
+} from '@musico/shared-types';
 ```
 
 ### Example Usage
 
 ```typescript
-// Create a new post
-const newPost: CreatePostRequest = {
-  content: {
-    text: "Hello Mention!",
-    images: ["image1.jpg", "image2.jpg"]
-  },
-  visibility: PostVisibility.PUBLIC,
-  hashtags: ["mention", "social"]
+// Create a new playlist
+const newPlaylist: CreatePlaylistRequest = {
+  name: "My Favorite Songs",
+  description: "A collection of my favorite tracks",
+  isPublic: true
 };
 
-// User profile with Oxy integration
-const profile: Profile = {
-  id: "profile123",
-  oxyUserId: "oxy_user_456",
-  profileType: ProfileType.PERSONAL,
-  isPrimary: true,
-  isActive: true,
-  personalInfo: {
-    username: "johndoe",
-    displayName: "John Doe",
-    bio: "Software developer"
+// Song with metadata
+const song: Song = {
+  id: "song123",
+  title: "Example Song",
+  artist: {
+    id: "artist456",
+    name: "Example Artist"
   },
+  album: {
+    id: "album789",
+    title: "Example Album",
+    coverUrl: "https://example.com/cover.jpg"
+  },
+  duration: 240, // seconds
+  audioUrl: "https://example.com/audio.mp3",
   // ... other fields
+};
+
+// Playback state
+const playbackState: PlaybackState = {
+  currentSong: song,
+  isPlaying: true,
+  position: 120, // seconds
+  queue: [song, /* ... more songs */]
 };
 ```
 
@@ -203,4 +198,4 @@ When adding new types:
 
 ## License
 
-UNLICENSED - Private package for Mention platform 
+UNLICENSED - Private package for Musico platform 

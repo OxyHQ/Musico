@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, TextInput, Text, ScrollView, Platform, Pressable, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import SEO from '@/components/SEO';
@@ -167,7 +167,7 @@ const SearchScreen: React.FC = () => {
         title="Search - Musico"
         description="Search for music"
       />
-      <ScrollView 
+      <ScrollView
         style={[styles.container, { backgroundColor: theme.colors.background }]}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -186,9 +186,9 @@ const SearchScreen: React.FC = () => {
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')}>
-                <Ionicons 
-                  name="close-circle" 
-                  size={20} 
+                <Ionicons
+                  name="close-circle"
+                  size={20}
                   color={theme.colors.textSecondary}
                 />
               </Pressable>
@@ -236,22 +236,26 @@ const SearchScreen: React.FC = () => {
           </ScrollView>
         )}
 
-        {/* Loading State */}
-        {loading && (
+        {/* Loading State - Only show when searching */}
+        {loading && searchQuery.length > 0 && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
         )}
 
         {/* Explore/Discovery View - No Query */}
-        {!loading && !exploreLoading && searchQuery.length === 0 && (
+        {searchQuery.length === 0 && (
           <View style={styles.exploreView}>
             {/* Browse All - Genre Cards */}
-            {genres.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Browse All
-                </Text>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Browse All
+              </Text>
+              {exploreLoading || genres.length === 0 ? (
+                <View style={styles.sectionLoading}>
+                  <ActivityIndicator size="large" color={theme.colors.primary} />
+                </View>
+              ) : (
                 <View style={styles.genreGrid}>
                   {genres.map((genre) => (
                     <View key={genre.name} style={styles.genreGridItem}>
@@ -264,15 +268,25 @@ const SearchScreen: React.FC = () => {
                     </View>
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
 
             {/* Made for You */}
-            {(madeForYouAlbums.length > 0 || madeForYouPlaylists.length > 0) && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Made for You
-                </Text>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Made for You
+              </Text>
+              {exploreLoading || (madeForYouAlbums.length === 0 && madeForYouPlaylists.length === 0) ? (
+                <View style={styles.sectionLoading}>
+                  {exploreLoading ? (
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  ) : (
+                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                      No recommendations available
+                    </Text>
+                  )}
+                </View>
+              ) : (
                 <View style={styles.grid}>
                   {madeForYouAlbums.map((album) => (
                     <View key={album.id} style={styles.gridItem}>
@@ -297,15 +311,25 @@ const SearchScreen: React.FC = () => {
                     </View>
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
 
             {/* Popular Tracks */}
-            {popularTracks.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Popular Tracks
-                </Text>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Popular Tracks
+              </Text>
+              {exploreLoading || popularTracks.length === 0 ? (
+                <View style={styles.sectionLoading}>
+                  {exploreLoading ? (
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  ) : (
+                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                      No tracks available
+                    </Text>
+                  )}
+                </View>
+              ) : (
                 <View style={styles.grid}>
                   {popularTracks.map((track) => (
                     <View key={track.id} style={styles.gridItem}>
@@ -320,15 +344,25 @@ const SearchScreen: React.FC = () => {
                     </View>
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
 
             {/* Top Albums */}
-            {popularAlbums.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Top Albums
-                </Text>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Top Albums
+              </Text>
+              {exploreLoading || popularAlbums.length === 0 ? (
+                <View style={styles.sectionLoading}>
+                  {exploreLoading ? (
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  ) : (
+                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                      No albums available
+                    </Text>
+                  )}
+                </View>
+              ) : (
                 <View style={styles.grid}>
                   {popularAlbums.map((album) => (
                     <View key={album.id} style={styles.gridItem}>
@@ -342,15 +376,25 @@ const SearchScreen: React.FC = () => {
                     </View>
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
 
             {/* Top Artists */}
-            {popularArtists.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Top Artists
-                </Text>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Top Artists
+              </Text>
+              {exploreLoading || popularArtists.length === 0 ? (
+                <View style={styles.sectionLoading}>
+                  {exploreLoading ? (
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  ) : (
+                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                      No artists available
+                    </Text>
+                  )}
+                </View>
+              ) : (
                 <View style={styles.grid}>
                   {popularArtists.map((artist) => (
                     <View key={artist.id} style={styles.gridItem}>
@@ -365,20 +409,30 @@ const SearchScreen: React.FC = () => {
                     </View>
                   ))}
                 </View>
-              </View>
-            )}
+              )}
+            </View>
 
             {/* Charts */}
-            {chartsTracks.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                  Charts
-                </Text>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Charts
+              </Text>
+              {exploreLoading || chartsTracks.length === 0 ? (
+                <View style={styles.sectionLoading}>
+                  {exploreLoading ? (
+                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                  ) : (
+                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                      No charts available
+                    </Text>
+                  )}
+                </View>
+              ) : (
                 <View style={styles.trackList}>
                   {chartsTracks.map((track, index) => {
                     const isCurrentTrack = currentTrack?.id === track.id;
                     const isTrackPlaying = isCurrentTrack && isPlaying;
-                    
+
                     return (
                       <Pressable
                         key={track.id}
@@ -450,15 +504,8 @@ const SearchScreen: React.FC = () => {
                     );
                   })}
                 </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Loading Explore Data */}
-        {exploreLoading && searchQuery.length === 0 && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.colors.primary} />
+              )}
+            </View>
           </View>
         )}
 
@@ -477,7 +524,7 @@ const SearchScreen: React.FC = () => {
                     {searchResults.results.tracks.map((track, index) => {
                       const isCurrentTrack = currentTrack?.id === track.id;
                       const isTrackPlaying = isCurrentTrack && isPlaying;
-                      
+
                       return (
                         <Pressable
                           key={track.id}
@@ -835,6 +882,16 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 16,
+    textAlign: 'center',
+  },
+  sectionLoading: {
+    padding: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
+  },
+  emptyText: {
+    fontSize: 14,
     textAlign: 'center',
   },
 });

@@ -26,6 +26,7 @@ import playlistsRoutes from './src/routes/playlists.routes';
 import libraryRoutes from './src/routes/library.routes';
 import audioRoutes from './src/routes/audio.routes';
 import queueRoutes from './src/routes/queue.routes';
+import musicPreferencesRoutes from './src/routes/musicPreferences.routes';
 
 // Middleware
 import { rateLimiter, bruteForceProtection } from "./src/middleware/security";
@@ -396,6 +397,7 @@ authenticatedApiRouter.use("/playlists", playlistsRoutes); // POST routes (creat
 authenticatedApiRouter.use("/library", libraryRoutes);
 authenticatedApiRouter.use("/audio", audioRoutes); // Audio streaming requires authentication
 authenticatedApiRouter.use("/queue", queueRoutes); // Queue management requires authentication
+authenticatedApiRouter.use("/music", musicPreferencesRoutes); // Music preferences requires authentication
 
 // Mount public and authenticated API routers
 app.use("/api", publicApiRouter);

@@ -1,12 +1,12 @@
-# @mention/backend
+# @musico/backend
 
-> The backend package of the Mention monorepo - A robust API service built with Express.js and TypeScript.
+> The backend package of the Musico monorepo - A robust API service built with Express.js and TypeScript.
 
 ---
 
 ## Overview
 
-This is the **backend package** of the **Mention** monorepo. The Mention API is a robust backend service built with Express.js and TypeScript, providing functionality for social media interactions including posts, user management, authentication, and real-time communications.
+This is the **backend package** of the **Musico** monorepo. The Musico API is a robust backend service built with Express.js and TypeScript, providing functionality for music streaming including song management, playlists, artists, albums, user library, search, audio file storage, and real-time communications.
 
 ## Tech Stack
 
@@ -29,8 +29,8 @@ This is the **backend package** of the **Mention** monorepo. The Mention API is 
 #### Option 1: From the Monorepo Root (Recommended)
 ```bash
 # Clone the repository
-git clone https://github.com/OxyHQ/Mention.git
-cd Mention
+git clone https://github.com/OxyHQ/Musico.git
+cd Musico
 
 # Install all dependencies
 npm run install:all
@@ -106,153 +106,121 @@ npm run migrate
 
 ## API Endpoints
 
-### Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Database
-    
-    Client->>API: POST /auth/signup
-    API->>Database: Create User
-    Database-->>API: User Created
-    API-->>Client: Access Token
-    
-    Client->>API: POST /auth/login
-    API->>Database: Verify Credentials
-    Database-->>API: User Found
-    API-->>Client: Access + Refresh Tokens
-```
-
 ### Authentication
 
-#### POST /auth/signup
-- Creates a new user account
-- Body: `{ username: string, email: string, password: string }`
-- Returns:
-```json
-{
-  "user": {
-    "id": "user_id",
-    "username": "john_doe",
-    "email": "john@example.com",
-    "createdAt": "2023-01-01T00:00:00Z"
-  },
-  "accessToken": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
+The API uses **Oxy** for user authentication and user data management. All user-related data is linked to Oxy users.
 
-#### POST /auth/login
-- Authenticates existing user
-- Body: `{ email: string, password: string }`
-- Returns:
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
+### Music Library
 
-### Posts
+#### GET /api/songs
+- Retrieves songs
+- Query params: `limit`, `offset`, `search`
+- Returns list of songs with metadata
 
-#### POST /posts
-- Creates a new post
+#### GET /api/songs/:id
+- Retrieves a specific song
+- Returns song details including audio URL, metadata, artist, album
+
+### Playlists
+
+#### GET /api/playlists
+- Retrieves user's playlists
 - Authentication: Bearer token required
-- Body:
-```json
-{
-  "text": "Hello world!",
-  "media": ["image1.jpg"],
-  "location": {
-    "longitude": -73.935242,
-    "latitude": 40.730610
-  }
-}
-```
-- Returns:
-```json
-{
-  "id": "post_id",
-  "text": "Hello world!",
-  "media": ["image1.jpg"],
-  "location": {
-    "type": "Point",
-    "coordinates": [-73.935242, 40.730610]
-  },
-  "createdAt": "2023-01-01T00:00:00Z",
-  "user": {
-    "id": "user_id",
-    "username": "john_doe"
-  }
-}
-```
+- Returns list of playlists
 
-#### GET /posts/explore
-- Retrieves posts for exploration
-- Query params: `limit` (default: 20), `offset` (default: 0)
-- Returns:
-```json
-{
-  "posts": [
-    {
-      "id": "post_id",
-      "text": "Post content",
-      "user": {
-        "id": "user_id",
-        "username": "john_doe"
-      },
-      "createdAt": "2023-01-01T00:00:00Z"
-    }
-  ],
-  "total": 100,
-  "hasMore": true
-}
-```
-
-### Users
-
-#### GET /users/:username
-- Retrieves user profile
+#### POST /api/playlists
+- Creates a new playlist
 - Authentication: Bearer token required
-- Returns:
-```json
-{
-  "id": "user_id",
-  "username": "john_doe",
-  "bio": "Hello, I'm John!",
-  "followersCount": 1000,
-  "followingCount": 500,
-  "postsCount": 100,
-  "isFollowing": true
-}
-```
+- Body: `{ name: string, description?: string, isPublic?: boolean }`
+
+#### GET /api/playlists/:id
+- Retrieves playlist details including songs
+- Returns playlist with song list
+
+#### PUT /api/playlists/:id
+- Updates playlist details
+- Authentication: Bearer token required
+
+#### DELETE /api/playlists/:id
+- Deletes a playlist
+- Authentication: Bearer token required
+
+### Artists
+
+#### GET /api/artists
+- Retrieves artists
+- Query params: `limit`, `offset`, `search`
+- Returns list of artists
+
+#### GET /api/artists/:id
+- Retrieves artist details
+- Returns artist info, albums, and songs
+
+### Albums
+
+#### GET /api/albums
+- Retrieves albums
+- Query params: `limit`, `offset`, `search`
+- Returns list of albums
+
+#### GET /api/albums/:id
+- Retrieves album details
+- Returns album info and track list
+
+### Search
+
+#### GET /api/search
+- Search across songs, artists, albums, and playlists
+- Query params: `q` (search query), `type` (songs|artists|albums|playlists), `limit`
+- Returns search results
 
 ## Database Schema Relationships
 
 ```mermaid
 erDiagram
-    User ||--o{ Post : creates
-    User ||--o{ Saved : has
-    User ||--o{ Follow : follows
-    Post ||--o{ Like : receives
-    Post ||--o{ Comment : has
+    User ||--o{ Playlist : creates
+    User ||--o{ Library : has
+    Song ||--o{ PlaylistItem : "included in"
+    Album ||--o{ Song : contains
+    Artist ||--o{ Album : creates
+    Artist ||--o{ Song : performs
     
     User {
         string id PK
-        string username
-        string email
-        string password
-        string[] saved
+        string oxyUserId FK
         datetime createdAt
     }
     
-    Post {
+    Song {
+        string id PK
+        string title
+        string artistId FK
+        string albumId FK
+        string audioUrl
+        number duration
+        datetime createdAt
+    }
+    
+    Album {
+        string id PK
+        string title
+        string artistId FK
+        string coverUrl
+        datetime releaseDate
+    }
+    
+    Artist {
+        string id PK
+        string name
+        string imageUrl
+    }
+    
+    Playlist {
         string id PK
         string userId FK
-        string text
-        string[] media
-        object location
+        string name
+        string description
+        boolean isPublic
         datetime createdAt
     }
 ```
@@ -270,32 +238,40 @@ erDiagram
 
 ## Monorepo Integration
 
-This package is part of the Mention monorepo and integrates with:
+This package is part of the Musico monorepo and integrates with:
 
-- **@mention/frontend**: React Native application
-- **@mention/shared-types**: Shared TypeScript type definitions
+- **@musico/frontend**: React Native application
+- **@musico/shared-types**: Shared TypeScript type definitions
 
 ### Shared Dependencies
-- Uses `@mention/shared-types` for type safety across packages
+- Uses `@musico/shared-types` for type safety across packages
 - Integrates with `@oxyhq/services` for common functionality
 
 ## Performance Optimization
 
 ### Caching Strategy
 - Implement Redis caching for:
-  - User profiles (TTL: 1 hour)
-  - Popular posts (TTL: 15 minutes)
-  - Trending hashtags (TTL: 5 minutes)
+  - Popular songs (TTL: 15 minutes)
+  - Artist and album data (TTL: 1 hour)
+  - User playlists (TTL: 30 minutes)
+  - Search results (TTL: 5 minutes)
 
 ### Database Indexing
 ```javascript
-// User Collection Indexes
-db.users.createIndex({ "username": 1 }, { unique: true })
-db.users.createIndex({ "email": 1 }, { unique: true })
+// Song Collection Indexes
+db.songs.createIndex({ "title": "text", "artist": "text" })
+db.songs.createIndex({ "artistId": 1, "albumId": 1 })
+db.songs.createIndex({ "createdAt": -1 })
 
-// Post Collection Indexes
-db.posts.createIndex({ "userId": 1, "createdAt": -1 })
-db.posts.createIndex({ "location": "2dsphere" })
+// Album Collection Indexes
+db.albums.createIndex({ "title": "text" })
+db.albums.createIndex({ "artistId": 1, "releaseDate": -1 })
+
+// Artist Collection Indexes
+db.artists.createIndex({ "name": "text" })
+
+// Playlist Collection Indexes
+db.playlists.createIndex({ "userId": 1, "createdAt": -1 })
 ```
 
 ## Monitoring and Logging
@@ -321,10 +297,10 @@ Response: {
 ### Docker Deployment
 ```bash
 # Build the Docker image
-docker build -t mention-api .
+docker build -t musico-api .
 
 # Run the container
-docker run -p 3000:3000 -e MONGODB_URI=your_mongodb_uri mention-api
+docker run -p 3000:3000 -e MONGODB_URI=your_mongodb_uri musico-api
 ```
 
 ### Cloud Deployment (Vercel)
@@ -348,20 +324,22 @@ docker run -p 3000:3000 -e MONGODB_URI=your_mongodb_uri mention-api
 vercel --prod
 ```
 
-## Push Notifications (FCM)
+## Audio File Storage
 
+Audio files are stored in AWS S3. The API handles:
+- Uploading audio files to S3
+- Generating presigned URLs for secure audio streaming
+- Managing audio file metadata
+
+### S3 Configuration
 Set these env vars in `packages/backend/.env`:
-
 ```
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_SERVICE_ACCOUNT_BASE64=base64-encoded-service-account-json
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=musico-audio
+AWS_ACCESS_KEY_ID=your_aws_access_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+S3_AUDIO_PREFIX=audio
 ```
-
-Routes:
-- POST /api/notifications/push-token { token, type, platform, deviceId?, locale? }
-- DELETE /api/notifications/push-token { token }
-
-When a notification is created, the server attempts to send an FCM push to registered tokens.
 
 ## Troubleshooting Guide
 

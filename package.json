@@ -1,25 +1,25 @@
 {
-  "name": "mention",
+  "name": "musico",
   "version": "2.0.0",
-  "description": "Mention Monorepo - Frontend and Backend",
+  "description": "Musico Monorepo - Music Streaming App Frontend and Backend",
   "private": true,
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspaces",
-    "dev:frontend": "npm run dev --workspace=@mention/frontend",
-    "dev:backend": "npm run dev --workspace=@mention/backend",
+    "dev:frontend": "npm run dev --workspace=@musico/frontend",
+    "dev:backend": "npm run dev --workspace=@musico/backend",
     "build": "npm run build --workspaces",
-    "build:shared-types": "npm run build --workspace=@mention/shared-types",
-    "build:frontend": "npm run build --workspace=@mention/frontend",
-    "build:backend": "npm run build --workspace=@mention/backend",
+    "build:shared-types": "npm run build --workspace=@musico/shared-types",
+    "build:frontend": "npm run build --workspace=@musico/frontend",
+    "build:backend": "npm run build --workspace=@musico/backend",
     "test": "npm run test --workspaces",
     "lint": "npm run lint --workspaces",
     "clean": "npm run clean --workspaces && rm -rf node_modules",
     "install:all": "npm install && npm install --workspaces",
-    "start:frontend": "npm run start --workspace=@mention/frontend",
-    "start:backend": "npm run start --workspace=@mention/backend",
+    "start:frontend": "npm run start --workspace=@musico/frontend",
+    "start:backend": "npm run start --workspace=@musico/backend",
     "postinstall": "npm run build:shared-types"
   },
   "devDependencies": {

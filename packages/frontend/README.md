@@ -1,6 +1,6 @@
-# @mention/frontend
+# @musico/frontend
 
-> The frontend package of the Mention monorepo - A modern, cross-platform social app built with Expo, React Native, and TypeScript.
+> The frontend package of the Musico monorepo - A modern, cross-platform music streaming app built with Expo, React Native, and TypeScript.
 
 ---
 
@@ -18,18 +18,18 @@
 
 ## About
 
-This is the **frontend package** of the **Mention** monorepo. **Mention** is a universal social platform inspired by Twitter/X, designed for mobile and web. It features real-time feeds, user profiles, trends, notifications, and more. Built with Expo and React Native, it supports file-based routing, multi-language support, and a modern UI.
+This is the **frontend package** of the **Musico** monorepo. **Musico** is a modern music streaming platform inspired by Spotify, designed for mobile and web. It features music library management, playlists, artist pages, album browsing, search, audio playback, and more. Built with Expo and React Native, it supports file-based routing, multi-language support, and a beautiful Spotify-like UI.
 
 This package contains the complete React Native application that runs on Android, iOS, and Web platforms.
 
 ## Features
 - Universal app: Android, iOS, and Web
-- Real-time feed with posts, replies, quotes, and reposts
-- User profiles with followers/following
-- Trends and analytics
-- Saved posts, lists, and media posts
-- Notifications (push and in-app)
-- Multi-language support (English, Spanish, Italian)
+- Music library with songs, albums, artists, and playlists
+- Playlist creation and management
+- Artist and album pages
+- Music search and discovery
+- Audio playback with player controls
+- User library and saved music
 - Responsive design and theming
 - Modern UI with custom icons and animations
 
@@ -40,21 +40,22 @@ This package contains the complete React Native application that runs on Android
 - Zustand (state management)
 - i18next (internationalization)
 - Expo Router (file-based routing)
+- Expo Audio (audio playback)
 - Custom SVG icons
-- Expo Notifications, Secure Store, Camera, Video, Image Picker
+- Expo Notifications, Secure Store
 
 ## Project Structure
 ```
 ├── app/                # App entry, screens, and routing
-│   ├── [username]/     # User profile, followers, following
-│   ├── kaana/          # AI assistant or help section
-│   ├── p/[id]/         # Post details, replies, quotes
+│   ├── search/         # Music search and discovery
+│   ├── library/        # User's music library
+│   ├── playlist/       # Playlist management
 │   └── ...
-├── components/         # UI components (Feed, Post, SideBar, etc.)
+├── components/         # UI components (Player, Playlist, LibrarySidebar, etc.)
 ├── assets/             # Images, icons, fonts
 ├── constants/          # App-wide constants
 ├── context/            # React context providers
-├── features/           # Feature modules (e.g., trends)
+├── features/           # Feature modules
 ├── hooks/              # Custom React hooks
 ├── interfaces/         # TypeScript interfaces
 ├── lib/                # Library code (e.g., reactQuery)
@@ -81,8 +82,8 @@ This package contains the complete React Native application that runs on Android
 #### Option 1: From the Monorepo Root (Recommended)
 ```bash
 # Clone the repository
-git clone https://github.com/OxyHQ/Mention.git
-cd Mention
+git clone https://github.com/OxyHQ/Musico.git
+cd Musico
 
 # Install all dependencies
 npm run install:all
@@ -143,20 +144,20 @@ EXPO_PUBLIC_BITDRIFT_KEY=your_bitdrift_key
 
 ## Monorepo Integration
 
-This package is part of the Mention monorepo and integrates with:
+This package is part of the Musico monorepo and integrates with:
 
-- **@mention/backend**: API server for data and authentication
-- **@mention/shared-types**: Shared TypeScript type definitions
+- **@musico/backend**: API server for music data and authentication
+- **@musico/shared-types**: Shared TypeScript type definitions
 
 ### Shared Dependencies
-- Uses `@mention/shared-types` for type safety across packages
+- Uses `@musico/shared-types` for type safety across packages
 - Integrates with `@oxyhq/services` for common functionality
 
-## Push Notifications (Expo + FCM)
+## Audio Playback
 
-- `expo-notifications` is configured via plugin in `app.config.js` for native builds.
-- The app registers the device push token after the user authenticates and posts it to the backend endpoint `/api/notifications/push-token`.
-- Backend requires Firebase Admin credentials via env vars to send FCM pushes.
+- Uses `expo-audio` for music playback functionality
+- Supports playlists, albums, and individual tracks
+- Player controls integrated throughout the app
 
 ## Contributing
 
