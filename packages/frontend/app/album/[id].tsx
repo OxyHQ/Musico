@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePlayerStore } from '@/stores/playerStore';
 import SEO from '@/components/SEO';
 import Avatar from '@/components/Avatar';
+import { formatDuration, formatTotalDuration } from '@/utils/musicUtils';
 
 /**
  * Album Screen
@@ -47,22 +48,6 @@ const AlbumScreen: React.FC = () => {
     }
   };
 
-  const formatDuration = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatTotalDuration = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    
-    if (hours > 0) {
-      return `${hours} hr ${mins} min ${secs} sec`;
-    }
-    return `${mins} min ${secs} sec`;
-  };
 
   const formatReleaseDate = (dateString: string): string => {
     const date = new Date(dateString);

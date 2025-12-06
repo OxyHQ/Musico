@@ -171,9 +171,9 @@ const SettingsScreen: React.FC = () => {
           <SettingsItem
             label="View Profile"
             onPress={() => {
-              // Navigate to profile if route exists
+              // Navigate to profile
               if (user?.username) {
-                router.push(`/${user.username}`);
+                router.push(`/u/${user.username}`);
               }
             }}
             showChevron
