@@ -191,14 +191,6 @@ const PlaylistScreen: React.FC = () => {
           pointerEvents="box-none"
         >
           <View style={styles.stickyHeaderContent}>
-            {/* Left side - Back button */}
-            <Pressable
-              onPress={() => router.back()}
-              style={styles.stickyHeaderButton}
-            >
-              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-            </Pressable>
-
             {/* Center - Title and cover art */}
             <View style={styles.stickyHeaderCenter}>
               {playlist.coverArt && (
@@ -216,10 +208,10 @@ const PlaylistScreen: React.FC = () => {
             {/* Right side - Controls */}
             <View style={styles.stickyHeaderControls}>
               <Pressable
-                style={styles.stickyHeaderControlButton}
+                style={[styles.stickyHeaderPlayButton, { backgroundColor: theme.colors.primary }]}
                 onPress={handlePlayPlaylist}
               >
-                <Ionicons name="play" size={20} color={theme.colors.text} />
+                <Ionicons name="play" size={16} color="#000" />
               </Pressable>
               <Pressable
                 style={styles.stickyHeaderControlButton}
@@ -483,7 +475,23 @@ const styles = StyleSheet.create({
   stickyHeaderControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
+  },
+  stickyHeaderPlayButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+        transition: 'transform 0.2s',
+        ':hover': {
+          transform: 'scale(1.1)',
+        },
+      },
+    }),
   },
   stickyHeaderControlButton: {
     width: 40,
