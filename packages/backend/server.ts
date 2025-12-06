@@ -15,6 +15,7 @@ import { logger } from "./src/utils/logger";
 
 // Routers
 import searchRoutes from "./src/routes/search";
+import browseRoutes from "./src/routes/browse";
 import { OxyServices } from '@oxyhq/services/core';
 import testRoutes from "./src/routes/test";
 import profileSettingsRoutes from './src/routes/profileSettings';
@@ -24,6 +25,7 @@ import artistsRoutes from './src/routes/artists.routes';
 import playlistsRoutes from './src/routes/playlists.routes';
 import libraryRoutes from './src/routes/library.routes';
 import audioRoutes from './src/routes/audio.routes';
+import queueRoutes from './src/routes/queue.routes';
 
 // Middleware
 import { rateLimiter, bruteForceProtection } from "./src/middleware/security";
@@ -221,6 +223,14 @@ const configureNamespaceErrorHandling = (namespace: Namespace) => {
 // Music namespaces (for future real-time features)
 const musicNamespace = io.of("/music");
 
+// Player namespace for real-time playback sync
+import { setupPlayerSocket } from './src/sockets/playerSocket';
+const playerNamespace = setupPlayerSocket(io);
+
+// Playlist namespace for real-time collaborative editing
+import { setupPlaylistSocket } from './src/sockets/playlistSocket';
+const playlistNamespace = setupPlaylistSocket(io);
+
 // --- Socket Auth Middleware ---
 // Lightweight auth: accept userId from client handshake and attach to socket
 [musicNamespace, io].forEach((namespaceOrServer: any) => {
@@ -259,6 +269,8 @@ musicNamespace.on("connection", (socket: AuthenticatedSocket) => {
 // Apply verification middleware to all namespaces
 [
   musicNamespace,
+  playerNamespace,
+  playlistNamespace,
 ].forEach((namespace) => {
   configureNamespaceErrorHandling(namespace);
 });
@@ -373,6 +385,7 @@ publicApiRouter.use("/albums", optionalAuth, albumsRoutes); // GET routes - publ
 publicApiRouter.use("/artists", optionalAuth, artistsRoutes); // GET routes - public viewing
 publicApiRouter.use("/playlists", optionalAuth, playlistsRoutes); // GET /playlists/:id is public
 publicApiRouter.use("/search", optionalAuth, searchRoutes);
+publicApiRouter.use("/browse", optionalAuth, browseRoutes); // Browse/explore endpoints - public
 
 // Authenticated API routes (require authentication)
 const authenticatedApiRouter = express.Router();
@@ -382,6 +395,7 @@ authenticatedApiRouter.use("/artists", artistsRoutes); // POST routes (follow/un
 authenticatedApiRouter.use("/playlists", playlistsRoutes); // POST routes (create)
 authenticatedApiRouter.use("/library", libraryRoutes);
 authenticatedApiRouter.use("/audio", audioRoutes); // Audio streaming requires authentication
+authenticatedApiRouter.use("/queue", queueRoutes); // Queue management requires authentication
 
 // Mount public and authenticated API routers
 app.use("/api", publicApiRouter);

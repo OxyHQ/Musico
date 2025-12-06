@@ -9,9 +9,12 @@ const config = getDefaultConfig(projectRoot);
 // Explicitly set projectRoot
 config.projectRoot = projectRoot;
 
-// CRITICAL: Only watch the frontend package
-// This prevents Metro from watching the entire monorepo
-config.watchFolders = [projectRoot];
+// CRITICAL: Watch frontend package and shared-types
+// This allows Metro to resolve workspace packages
+config.watchFolders = [
+  projectRoot,
+  path.join(monorepoRoot, 'packages/shared-types'),
+];
 
 // Helper to create block patterns
 const blockPath = (dir) => {

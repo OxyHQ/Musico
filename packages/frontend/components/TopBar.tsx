@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    zIndex: 0,
+    zIndex: 2,
     pointerEvents: 'box-none',
   },
   centerGroup: {

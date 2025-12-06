@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { createAudioPlayer, AudioPlayer } from 'expo-audio';
-import { Track } from '@musico/shared-types';
+import { Track, PlaybackContext, RepeatMode } from '@musico/shared-types';
 import { getApiOrigin } from '@/utils/api';
+import { useQueueStore } from './queueStore';
 
 interface PlayerState {
   currentTrack: Track | null;
@@ -12,9 +13,13 @@ interface PlayerState {
   volume: number;
   player: AudioPlayer | null;
   error: string | null;
+  context: PlaybackContext | null;
   
   // Actions
-  playTrack: (track: Track) => Promise<void>;
+  playTrack: (track: Track, context?: PlaybackContext, addToQueue?: boolean) => Promise<void>;
+  playFromQueue: (index: number) => Promise<void>;
+  playNext: () => Promise<void>;
+  playPrevious: () => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   seek: (position: number) => Promise<void>;
@@ -22,6 +27,7 @@ interface PlayerState {
   stop: () => Promise<void>;
   updateCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
+  handleTrackCompletion: () => Promise<void>;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
@@ -63,8 +69,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     volume: 1.0,
     player: null,
     error: null,
+    context: null,
 
-    playTrack: async (track: Track) => {
+    playTrack: async (track: Track, context?: PlaybackContext, addToQueue: boolean = false) => {
       try {
         console.log('[PlayerStore] Playing track:', track.title, track.audioSource.url);
         set({ isLoading: true, error: null, currentTrack: track }); // Set track immediately so player shows
@@ -96,7 +103,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
           console.log('[PlayerStore] Status changed:', status);
           if (status.isLoaded) {
             if (status.didJustFinish) {
-              get().stop();
+              // Handle track completion - auto-play next if in queue
+              get().handleTrackCompletion();
             } else {
               set({
                 isPlaying: status.playing || false,
@@ -137,7 +145,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             isLoading: false,
             duration,
             currentTime: player.currentTime || 0,
+            context: context || null,
           });
+
+          // Add to queue if requested
+          if (addToQueue) {
+            const queueStore = useQueueStore.getState();
+            await queueStore.addToQueue([track.id], 'last');
+          } else {
+            // Update queue current index if track is in queue
+            const queueStore = useQueueStore.getState();
+            const queue = queueStore.queue;
+            if (queue) {
+              const trackIndex = queue.tracks.findIndex(t => t.id === track.id);
+              if (trackIndex >= 0) {
+                await queueStore.setCurrentIndex(trackIndex);
+              }
+            }
+          }
 
           startPositionUpdates(player);
         } catch (playError) {
@@ -216,6 +241,78 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     setDuration: (duration: number) => {
       set({ duration });
+    },
+
+    playFromQueue: async (index: number) => {
+      const queueStore = useQueueStore.getState();
+      const queue = queueStore.queue;
+      
+      if (!queue || index < 0 || index >= queue.tracks.length) {
+        console.error('[PlayerStore] Invalid queue index:', index);
+        return;
+      }
+
+      const track = queue.tracks[index];
+      await queueStore.setCurrentIndex(index);
+      await get().playTrack(track, queue.context, false);
+    },
+
+    playNext: async () => {
+      const queueStore = useQueueStore.getState();
+      await queueStore.playNext();
+      
+      const queue = queueStore.queue;
+      if (queue && queue.current >= 0 && queue.current < queue.tracks.length) {
+        const nextTrack = queue.tracks[queue.current];
+        await get().playTrack(nextTrack, queue.context, false);
+      }
+    },
+
+    playPrevious: async () => {
+      const queueStore = useQueueStore.getState();
+      await queueStore.playPrevious();
+      
+      const queue = queueStore.queue;
+      if (queue && queue.current >= 0 && queue.current < queue.tracks.length) {
+        const prevTrack = queue.tracks[queue.current];
+        await get().playTrack(prevTrack, queue.context, false);
+      }
+    },
+
+    handleTrackCompletion: async () => {
+      const queueStore = useQueueStore.getState();
+      const queue = queueStore.queue;
+      const { repeat, shuffle } = queueStore;
+
+      // Stop current track
+      await get().stop();
+
+      if (!queue || queue.tracks.length === 0) {
+        return;
+      }
+
+      const currentIndex = queue.current;
+      
+      // Handle repeat modes
+      if (repeat === RepeatMode.ONE) {
+        // Repeat same track
+        if (currentIndex >= 0 && currentIndex < queue.tracks.length) {
+          const track = queue.tracks[currentIndex];
+          await get().playTrack(track, queue.context, false);
+        }
+        return;
+      }
+
+      // Check if there's a next track
+      const nextIndex = currentIndex + 1;
+      if (nextIndex < queue.tracks.length) {
+        // Play next track
+        await get().playFromQueue(nextIndex);
+      } else if (repeat === RepeatMode.ALL) {
+        // Loop to beginning
+        await get().playFromQueue(0);
+      }
+      // If repeat is OFF and no next track, just stop
     },
   };
 });

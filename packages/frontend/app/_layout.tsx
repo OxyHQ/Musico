@@ -166,7 +166,7 @@ const MainLayout: React.FC<MainLayoutProps> = memo(({ isScreenNotMobile }) => {
         <View style={styles.panelsWrapper}>
           {/* Left Sidebar - Your Library */}
           {isScreenNotMobile && !isNowPlayingFullscreen && (
-            <Panel rounded="all" radius={12} style={styles.leftSidebarContainer} overflow={false}>
+            <Panel rounded="all" radius={12} style={styles.leftSidebarContainer}>
               <LibrarySidebar />
             </Panel>
           )}

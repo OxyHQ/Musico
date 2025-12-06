@@ -73,16 +73,8 @@ export const NowPlaying: React.FC = () => {
   const backgroundImage = currentTrack?.coverArt || album?.coverArt || artist?.image;
 
   return (
-    <View 
-      style={[
-        styles.container, 
-        { 
-          width: isNowPlayingVisible ? (isFullscreen ? '100%' : 350) : 0,
-        }
-      ]}
-    >
-      {isNowPlayingVisible && (
-        <View style={styles.wrapper}>
+    <View style={styles.container}>
+      <View style={styles.wrapper}>
           {/* Header with buttons */}
           <View style={styles.header}>
             <View style={styles.headerButtons}>
@@ -300,8 +292,7 @@ export const NowPlaying: React.FC = () => {
               </View>
             )}
           </ScrollView>
-        </View>
-      )}
+      </View>
     </View>
   );
 };
