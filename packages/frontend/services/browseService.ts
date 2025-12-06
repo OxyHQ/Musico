@@ -44,7 +44,7 @@ export const browseService = {
    * Get available genres with sample content
    */
   async getGenres(): Promise<{ genres: Genre[] }> {
-    const response = await api.get<{ genres: Genre[] }>('/api/browse/genres');
+    const response = await api.get<{ genres: Genre[] }>('/browse/genres');
     return response.data;
   },
 
@@ -52,7 +52,7 @@ export const browseService = {
    * Get popular/trending tracks
    */
   async getPopularTracks(params?: { limit?: number; offset?: number }): Promise<PopularTracksResponse> {
-    const response = await api.get<PopularTracksResponse>('/api/browse/popular/tracks', params);
+    const response = await api.get<PopularTracksResponse>('/browse/popular/tracks', params);
     return response.data;
   },
 
@@ -60,7 +60,7 @@ export const browseService = {
    * Get popular/trending albums
    */
   async getPopularAlbums(params?: { limit?: number; offset?: number }): Promise<PopularAlbumsResponse> {
-    const response = await api.get<PopularAlbumsResponse>('/api/browse/popular/albums', params);
+    const response = await api.get<PopularAlbumsResponse>('/browse/popular/albums', params);
     return response.data;
   },
 
@@ -68,7 +68,7 @@ export const browseService = {
    * Get popular/trending artists
    */
   async getPopularArtists(params?: { limit?: number; offset?: number }): Promise<PopularArtistsResponse> {
-    const response = await api.get<PopularArtistsResponse>('/api/browse/popular/artists', params);
+    const response = await api.get<PopularArtistsResponse>('/browse/popular/artists', params);
     return response.data;
   },
 
@@ -76,7 +76,7 @@ export const browseService = {
    * Get made for you recommendations
    */
   async getMadeForYou(params?: { limit?: number }): Promise<MadeForYouResponse> {
-    const response = await api.get<MadeForYouResponse>('/api/browse/made-for-you', params);
+    const response = await api.get<MadeForYouResponse>('/browse/made-for-you', params);
     return response.data;
   },
 
@@ -84,7 +84,7 @@ export const browseService = {
    * Get top charts
    */
   async getCharts(params?: { limit?: number }): Promise<ChartsResponse> {
-    const response = await api.get<ChartsResponse>('/api/browse/charts', params);
+    const response = await api.get<ChartsResponse>('/browse/charts', params);
     return response.data;
   },
 };

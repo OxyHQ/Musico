@@ -7,7 +7,7 @@ import { SearchResult, SearchCategory } from '@musico/shared-types';
  */
 export const searchService = {
   async search(query: string, params?: { category?: SearchCategory; limit?: number; offset?: number }): Promise<SearchResult> {
-    const response = await api.get<SearchResult>('/api/search', { q: query, ...params });
+    const response = await api.get<SearchResult>('/search', { q: query, ...params });
     return response.data;
   },
 };

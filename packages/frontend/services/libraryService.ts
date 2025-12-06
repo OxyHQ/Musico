@@ -7,22 +7,22 @@ import { Track, Album, Artist, UserLibrary } from '@musico/shared-types';
  */
 export const libraryService = {
   async getUserLibrary(): Promise<UserLibrary> {
-    const response = await api.get<UserLibrary>('/api/library');
+    const response = await api.get<UserLibrary>('/library');
     return response.data;
   },
 
   async getLikedTracks(params?: { limit?: number; offset?: number }): Promise<{ tracks: Track[]; total: number; oxyUserId: string }> {
-    const response = await api.get<{ tracks: Track[]; total: number; oxyUserId: string }>('/api/library/tracks', params);
+    const response = await api.get<{ tracks: Track[]; total: number; oxyUserId: string }>('/library/tracks', params);
     return response.data;
   },
 
   async likeTrack(trackId: string): Promise<{ success: boolean }> {
-    const response = await api.post<{ success: boolean }>(`/api/library/tracks/${trackId}/like`);
+    const response = await api.post<{ success: boolean }>(`/library/tracks/${trackId}/like`);
     return response.data;
   },
 
   async unlikeTrack(trackId: string): Promise<{ success: boolean }> {
-    const response = await api.post<{ success: boolean }>(`/api/library/tracks/${trackId}/unlike`);
+    const response = await api.post<{ success: boolean }>(`/library/tracks/${trackId}/unlike`);
     return response.data;
   },
 };
