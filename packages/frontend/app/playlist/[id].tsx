@@ -193,13 +193,17 @@ const PlaylistScreen: React.FC = () => {
           <View style={styles.stickyHeaderContent}>
             {/* Center - Title and cover art */}
             <View style={styles.stickyHeaderCenter}>
-              {playlist.coverArt && (
-                <Image
-                  source={{ uri: playlist.coverArt }}
-                  style={styles.stickyHeaderImage}
-                  resizeMode="cover"
-                />
-              )}
+              <View style={[styles.stickyHeaderImageContainer, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                {playlist.coverArt ? (
+                  <Image
+                    source={{ uri: playlist.coverArt }}
+                    style={styles.stickyHeaderImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Ionicons name="musical-notes" size={20} color={theme.colors.textSecondary} />
+                )}
+              </View>
               <Text style={[styles.stickyHeaderTitle, { color: theme.colors.text }]} numberOfLines={1}>
                 {playlist.name}
               </Text>
@@ -459,18 +463,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     minWidth: 0,
-    marginHorizontal: 8,
+    marginHorizontal: 0,
   },
-  stickyHeaderImage: {
+  stickyHeaderImageContainer: {
     width: 40,
     height: 40,
     borderRadius: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  stickyHeaderImage: {
+    width: '100%',
+    height: '100%',
   },
   stickyHeaderTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: -0.3,
     flex: 1,
+    textAlign: 'left',
   },
   stickyHeaderControls: {
     flexDirection: 'row',

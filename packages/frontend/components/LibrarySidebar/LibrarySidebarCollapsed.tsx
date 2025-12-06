@@ -1,20 +1,36 @@
 import React from 'react';
-import { StyleSheet, View, Pressable } from 'react-native';
+import { StyleSheet, View, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons, Octicons } from '@expo/vector-icons';
+import { Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
+import { Playlist, Album, Artist } from '@musico/shared-types';
+import { Image } from 'expo-image';
+import { useOxy } from '@oxyhq/services';
 
 interface LibrarySidebarCollapsedProps {
   onExpand: () => void;
+  playlists: Playlist[];
+  savedAlbums: Album[];
+  followedArtists: Artist[];
+  likedTracksCount: number;
+  loading: boolean;
 }
 
 /**
  * Library Sidebar Collapsed View
- * Minimal icon-only sidebar when collapsed
+ * Compact icon-only sidebar showing liked songs and playlists
  */
-export const LibrarySidebarCollapsed: React.FC<LibrarySidebarCollapsedProps> = ({ onExpand }) => {
+export const LibrarySidebarCollapsed: React.FC<LibrarySidebarCollapsedProps> = ({ 
+  onExpand,
+  playlists,
+  savedAlbums,
+  followedArtists,
+  likedTracksCount,
+  loading,
+}) => {
   const router = useRouter();
   const theme = useTheme();
+  const { isAuthenticated } = useOxy();
 
   return (
     <View style={styles.container}>
@@ -25,20 +41,109 @@ export const LibrarySidebarCollapsed: React.FC<LibrarySidebarCollapsedProps> = (
         >
           <Octicons
             name="sidebar-expand"
-            size={20}
+            size={18}
             color={theme.colors.text}
           />
         </Pressable>
       </View>
 
-      <View style={styles.content}>
-        <Pressable
-          style={[styles.likedIcon, { backgroundColor: '#450af5' }]}
-          onPress={() => router.push('/library')}
-        >
-          <Ionicons name="heart" size={20} color="#FFFFFF" />
-        </Pressable>
-      </View>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Liked Songs */}
+        {isAuthenticated && (
+          <Pressable
+            style={[styles.iconButton, { backgroundColor: '#450af5' }]}
+            onPress={() => router.push('/library/liked')}
+          >
+            <Ionicons name="heart" size={18} color="#FFFFFF" />
+          </Pressable>
+        )}
+
+        {/* Loading state */}
+        {loading && isAuthenticated && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          </View>
+        )}
+
+        {/* Playlists */}
+        {!loading && isAuthenticated && playlists.map((playlist) => (
+          <Pressable
+            key={playlist.id}
+            style={styles.iconButton}
+            onPress={() => router.push(`/playlist/${playlist.id}`)}
+          >
+            {playlist.coverArt ? (
+              <Image
+                source={{ uri: playlist.coverArt }}
+                style={styles.playlistIcon}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[styles.playlistIconPlaceholder, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                <MaterialCommunityIcons
+                  name="playlist-music"
+                  size={18}
+                  color={theme.colors.textSecondary}
+                />
+              </View>
+            )}
+          </Pressable>
+        ))}
+
+        {/* Artists */}
+        {!loading && isAuthenticated && followedArtists.map((artist) => (
+          <Pressable
+            key={artist.id}
+            style={styles.iconButton}
+            onPress={() => router.push(`/artist/${artist.id}`)}
+          >
+            {artist.profileImage ? (
+              <Image
+                source={{ uri: artist.profileImage }}
+                style={styles.artistIcon}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[styles.artistIconPlaceholder, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                <Ionicons
+                  name="person"
+                  size={18}
+                  color={theme.colors.textSecondary}
+                />
+              </View>
+            )}
+          </Pressable>
+        ))}
+
+        {/* Albums */}
+        {!loading && isAuthenticated && savedAlbums.map((album) => (
+          <Pressable
+            key={album.id}
+            style={styles.iconButton}
+            onPress={() => router.push(`/album/${album.id}`)}
+          >
+            {album.coverArt ? (
+              <Image
+                source={{ uri: album.coverArt }}
+                style={styles.playlistIcon}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[styles.playlistIconPlaceholder, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                <MaterialCommunityIcons
+                  name="album"
+                  size={18}
+                  color={theme.colors.textSecondary}
+                />
+              </View>
+            )}
+          </Pressable>
+        ))}
+      </ScrollView>
     </View>
   );
 };
@@ -48,8 +153,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: 8,
-    padding: 12,
+    padding: 8,
   },
   header: {
     width: '100%',
@@ -58,28 +162,56 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   expandButton: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: 14,
   },
-  content: {
+  scrollView: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 8,
-    padding: 0,
-    margin: 0,
+    width: '100%',
   },
-  likedIcon: {
+  scrollContent: {
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  iconButton: {
     width: 40,
     height: 40,
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 0,
-    margin: 0,
+  },
+  playlistIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+  },
+  playlistIconPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artistIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  artistIconPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingContainer: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

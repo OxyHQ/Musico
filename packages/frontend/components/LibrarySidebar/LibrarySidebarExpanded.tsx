@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Playlist, Album, Artist } from '@musico/shared-types';
 import LibraryScreen from '@/app/library';
 
 interface LibrarySidebarExpandedProps {
@@ -11,6 +12,12 @@ interface LibrarySidebarExpandedProps {
   onCollapse: () => void;
   onSearchChange: (query: string) => void;
   onFilterChange: (filter: 'Playlists' | 'Artists' | 'Albums' | 'Podcasts') => void;
+  playlists: Playlist[];
+  savedAlbums: Album[];
+  followedArtists: Artist[];
+  likedTracksCount: number;
+  loading: boolean;
+  error: string | null;
 }
 
 /**
@@ -22,6 +29,12 @@ export const LibrarySidebarExpanded: React.FC<LibrarySidebarExpandedProps> = ({
   isFullscreen,
   onFullscreen,
   onCollapse,
+  playlists,
+  savedAlbums,
+  followedArtists,
+  likedTracksCount,
+  loading,
+  error,
 }) => {
   return (
     <View style={styles.container}>
@@ -30,6 +43,12 @@ export const LibrarySidebarExpanded: React.FC<LibrarySidebarExpandedProps> = ({
         isFullscreen={isFullscreen}
         onFullscreen={onFullscreen}
         onCollapse={onCollapse}
+        playlists={playlists}
+        savedAlbums={savedAlbums}
+        followedArtists={followedArtists}
+        likedTracksCount={likedTracksCount}
+        loading={loading}
+        error={error}
       />
     </View>
   );

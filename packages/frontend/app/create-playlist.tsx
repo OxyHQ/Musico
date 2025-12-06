@@ -124,7 +124,7 @@ const CreatePlaylistScreen: React.FC = () => {
             {
               backgroundColor: theme.colors.background,
               borderBottomColor: theme.colors.border,
-              paddingTop: insets.top,
+              paddingTop: Math.max(insets.top, 8),
             },
           ]}
         >
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingBottom: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 8,
   },
