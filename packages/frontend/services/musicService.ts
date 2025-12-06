@@ -71,12 +71,23 @@ export const musicService = {
     return response.data;
   },
 
+  async getPlaylistTracks(playlistId: string): Promise<{ tracks: Track[]; total: number }> {
+    const response = await api.get<{ tracks: Track[]; total: number }>(`/playlists/${playlistId}/tracks`);
+    return response.data;
+  },
+
   async getUserPlaylists(): Promise<{ playlists: Playlist[]; total: number }> {
     const response = await api.get<{ playlists: Playlist[]; total: number }>('/playlists');
     return response.data;
   },
 
-  async createPlaylist(data: { name: string; description?: string; coverArt?: string; isPublic?: boolean }): Promise<Playlist> {
+  async createPlaylist(data: { 
+    name: string; 
+    description?: string; 
+    coverArt?: string; 
+    isPublic?: boolean;
+    visibility?: string;
+  }): Promise<Playlist> {
     const response = await api.post<Playlist>('/playlists', data);
     return response.data;
   },

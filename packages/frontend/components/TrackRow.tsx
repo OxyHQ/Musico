@@ -19,7 +19,7 @@ interface TrackRowProps {
  * Reusable Track Row Component
  * Used in search results, charts, album pages, etc.
  */
-export const TrackRow: React.FC<TrackRowProps> = ({
+export const TrackRow: React.FC<TrackRowProps> = React.memo(({
   track,
   index,
   isCurrentTrack,
@@ -104,7 +104,7 @@ export const TrackRow: React.FC<TrackRowProps> = ({
       </View>
     </Pressable>
   );
-};
+});
 
 const styles = StyleSheet.create({
   trackRow: {

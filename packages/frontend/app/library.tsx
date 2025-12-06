@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, ScrollView, Pressable, Platform } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import SEO from '@/components/SEO';
-import { Ionicons, Octicons } from '@expo/vector-icons';
+import { Ionicons, Octicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 interface LibraryScreenProps {
@@ -43,6 +43,17 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.colors.text }]}>Your Library</Text>
           <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => router.push('/create-playlist')}
+              style={[styles.createButton, { backgroundColor: theme.colors.primary }]}
+            >
+              <MaterialCommunityIcons
+                name="plus"
+                size={20}
+                color="#FFFFFF"
+              />
+              <Text style={styles.createButtonText}>Create Playlist</Text>
+            </Pressable>
             {showSidebarControls && onFullscreen && (
               <Pressable
                 onPress={onFullscreen}
@@ -103,9 +114,21 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
 
         {/* Empty state for playlists */}
         <View style={styles.emptyState}>
+          <MaterialCommunityIcons
+            name="playlist-music"
+            size={64}
+            color={theme.colors.textSecondary}
+            style={styles.emptyIcon}
+          />
           <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
             No playlists yet
           </Text>
+          <Pressable
+            onPress={() => router.push('/create-playlist')}
+            style={[styles.emptyCreateButton, { backgroundColor: theme.colors.primary }]}
+          >
+            <Text style={styles.emptyCreateButtonText}>Create your first playlist</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </>
@@ -133,6 +156,25 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     gap: 8,
+    alignItems: 'center',
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
+  },
+  createButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   headerButton: {
     width: 32,
@@ -196,9 +238,30 @@ const styles = StyleSheet.create({
     padding: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 16,
+  },
+  emptyIcon: {
+    opacity: 0.5,
   },
   emptyText: {
     fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyCreateButton: {
+    marginTop: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    ...Platform.select({
+      web: {
+        cursor: 'pointer',
+      },
+    }),
+  },
+  emptyCreateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

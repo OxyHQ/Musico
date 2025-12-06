@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { StyleSheet, View, TextInput, Text, ScrollView, Platform, Pressable, ActivityIndicator } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@/hooks/useTheme';
 import SEO from '@/components/SEO';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,117 +25,113 @@ const SearchScreen: React.FC = () => {
   const { playTrack, currentTrack, isPlaying } = usePlayerStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<SearchCategory>(SearchCategory.ALL);
-  const [searchResults, setSearchResults] = useState<SearchResult | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  // Browse/Explore state
-  const [genres, setGenres] = useState<Genre[]>([]);
-  const [popularTracks, setPopularTracks] = useState<Track[]>([]);
-  const [popularAlbums, setPopularAlbums] = useState<Album[]>([]);
-  const [popularArtists, setPopularArtists] = useState<Artist[]>([]);
-  const [madeForYouAlbums, setMadeForYouAlbums] = useState<Album[]>([]);
-  const [madeForYouPlaylists, setMadeForYouPlaylists] = useState<Playlist[]>([]);
-  const [chartsTracks, setChartsTracks] = useState<Track[]>([]);
-  const [exploreLoading, setExploreLoading] = useState(false);
 
   // Debounce search query
   const debouncedQuery = useDebouncedValue(searchQuery, 300);
+  const hasQuery = debouncedQuery.trim().length > 0;
 
-  // Fetch explore data when query is empty
-  useEffect(() => {
-    const fetchExploreData = async () => {
-      if (searchQuery.trim().length > 0) {
-        return; // Don't fetch explore data if there's a search query
-      }
+  // React Query hooks for explore data - only enabled when no search query
+  // Each query loads independently for progressive rendering
+  const { data: genresData, isLoading: genresLoading } = useQuery({
+    queryKey: ['browse', 'genres'],
+    queryFn: () => browseService.getGenres(),
+    enabled: !hasQuery,
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
 
-      setExploreLoading(true);
-      try {
-        const [
-          genresResponse,
-          popularTracksResponse,
-          popularAlbumsResponse,
-          popularArtistsResponse,
-          madeForYouResponse,
-          chartsResponse,
-        ] = await Promise.all([
-          browseService.getGenres(),
-          browseService.getPopularTracks({ limit: 6 }),
-          browseService.getPopularAlbums({ limit: 8 }),
-          browseService.getPopularArtists({ limit: 8 }),
-          browseService.getMadeForYou({ limit: 8 }),
-          browseService.getCharts({ limit: 10 }),
-        ]);
+  const { data: popularTracksData, isLoading: popularTracksLoading } = useQuery({
+    queryKey: ['browse', 'popular', 'tracks'],
+    queryFn: () => browseService.getPopularTracks({ limit: 6 }),
+    enabled: !hasQuery,
+    staleTime: 1000 * 60 * 10,
+  });
 
-        setGenres(genresResponse.genres);
-        setPopularTracks(popularTracksResponse.tracks);
-        setPopularAlbums(popularAlbumsResponse.albums);
-        setPopularArtists(popularArtistsResponse.artists);
-        setMadeForYouAlbums(madeForYouResponse.albums);
-        setMadeForYouPlaylists(madeForYouResponse.playlists);
-        setChartsTracks(chartsResponse.tracks);
-      } catch (error) {
-        console.error('[Search] Error fetching explore data:', error);
-      } finally {
-        setExploreLoading(false);
-      }
-    };
+  const { data: popularAlbumsData, isLoading: popularAlbumsLoading } = useQuery({
+    queryKey: ['browse', 'popular', 'albums'],
+    queryFn: () => browseService.getPopularAlbums({ limit: 8 }),
+    enabled: !hasQuery,
+    staleTime: 1000 * 60 * 10,
+  });
 
-    fetchExploreData();
-  }, [searchQuery]);
+  const { data: popularArtistsData, isLoading: popularArtistsLoading } = useQuery({
+    queryKey: ['browse', 'popular', 'artists'],
+    queryFn: () => browseService.getPopularArtists({ limit: 8 }),
+    enabled: !hasQuery,
+    staleTime: 1000 * 60 * 10,
+  });
 
-  // Perform search when debounced query or category changes
-  useEffect(() => {
-    const performSearch = async () => {
-      if (!debouncedQuery.trim()) {
-        setSearchResults(null);
-        return;
-      }
+  const { data: madeForYouData, isLoading: madeForYouLoading } = useQuery({
+    queryKey: ['browse', 'made-for-you'],
+    queryFn: () => browseService.getMadeForYou({ limit: 8 }),
+    enabled: !hasQuery,
+    staleTime: 1000 * 60 * 10,
+  });
 
-      setLoading(true);
-      try {
-        const results = await searchService.search(debouncedQuery, {
-          category: activeCategory,
-          limit: 20,
-          offset: 0,
-        });
-        setSearchResults(results);
-      } catch (error) {
-        console.error('[Search] Error performing search:', error);
-        setSearchResults(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { data: chartsData, isLoading: chartsLoading } = useQuery({
+    queryKey: ['browse', 'charts'],
+    queryFn: () => browseService.getCharts({ limit: 10 }),
+    enabled: !hasQuery,
+    staleTime: 1000 * 60 * 10,
+  });
 
-    performSearch();
-  }, [debouncedQuery, activeCategory]);
+  // Search query - only enabled when there's a search query
+  const { data: searchResults, isLoading: searchLoading } = useQuery({
+    queryKey: ['search', debouncedQuery, activeCategory],
+    queryFn: () => searchService.search(debouncedQuery, {
+      category: activeCategory,
+      limit: 20,
+      offset: 0,
+    }),
+    enabled: hasQuery,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
-  const handleTrackPress = (track: Track) => {
+  // Memoize explore data
+  const genres = useMemo(() => genresData?.genres || [], [genresData]);
+  const popularTracks = useMemo(() => popularTracksData?.tracks || [], [popularTracksData]);
+  const popularAlbums = useMemo(() => popularAlbumsData?.albums || [], [popularAlbumsData]);
+  const popularArtists = useMemo(() => popularArtistsData?.artists || [], [popularArtistsData]);
+  const madeForYouAlbums = useMemo(() => madeForYouData?.albums || [], [madeForYouData]);
+  const madeForYouPlaylists = useMemo(() => madeForYouData?.playlists || [], [madeForYouData]);
+  const chartsTracks = useMemo(() => chartsData?.tracks || [], [chartsData]);
+
+  // Memoized event handlers
+  const handleTrackPress = useCallback((track: Track) => {
     playTrack(track);
-  };
+  }, [playTrack]);
 
-  const handleTrackRowPress = (track: Track) => {
+  const handleTrackRowPress = useCallback((track: Track) => {
     if (track.albumId) {
       router.push(`/album/${track.albumId}`);
     } else {
       playTrack(track);
     }
-  };
+  }, [router, playTrack]);
 
-  const handleGenreClick = (genreName: string) => {
+  const handleGenreClick = useCallback((genreName: string) => {
     setSearchQuery(genreName);
-  };
+  }, []);
 
-  const categories: { value: SearchCategory; label: string }[] = [
+  const handleCategoryChange = useCallback((category: SearchCategory) => {
+    setActiveCategory(category);
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+  }, []);
+
+  // Memoized categories
+  const categories: { value: SearchCategory; label: string }[] = useMemo(() => [
     { value: SearchCategory.ALL, label: 'All' },
     { value: SearchCategory.TRACKS, label: 'Tracks' },
     { value: SearchCategory.ALBUMS, label: 'Albums' },
     { value: SearchCategory.ARTISTS, label: 'Artists' },
     { value: SearchCategory.PLAYLISTS, label: 'Playlists' },
-  ];
+  ], []);
 
-  const showResults = searchResults && debouncedQuery.trim().length > 0;
-  const hasResults = searchResults && searchResults.counts.total > 0;
+  // Memoized computed values
+  const showResults = useMemo(() => searchResults && hasQuery, [searchResults, hasQuery]);
+  const hasResults = useMemo(() => searchResults && searchResults.counts.total > 0, [searchResults]);
 
   return (
     <>
@@ -160,7 +157,7 @@ const SearchScreen: React.FC = () => {
               autoFocus
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')}>
+              <Pressable onPress={handleClearSearch}>
                 <Ionicons
                   name="close-circle"
                   size={20}
@@ -182,7 +179,7 @@ const SearchScreen: React.FC = () => {
             {categories.map((category) => (
               <Pressable
                 key={category.value}
-                onPress={() => setActiveCategory(category.value)}
+                onPress={() => handleCategoryChange(category.value)}
                 style={[
                   styles.categoryTab,
                   activeCategory === category.value && {
@@ -212,7 +209,7 @@ const SearchScreen: React.FC = () => {
         )}
 
         {/* Loading State - Only show when searching */}
-        {loading && searchQuery.length > 0 && (
+        {searchLoading && hasQuery && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
           </View>
@@ -222,216 +219,163 @@ const SearchScreen: React.FC = () => {
         {searchQuery.length === 0 && (
           <View style={styles.exploreView}>
             {/* Browse All - Genre Cards */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Browse All
-              </Text>
-              {exploreLoading || genres.length === 0 ? (
-                <View style={styles.sectionLoading}>
-                  <ActivityIndicator size="large" color={theme.colors.primary} />
-                </View>
-              ) : (
-                <View style={styles.genreGrid}>
-                  {genres.map((genre) => (
-                    <View key={genre.name} style={styles.genreGridItem}>
-                      <GenreCard
-                        name={genre.name}
-                        color={genre.color}
-                        coverArt={genre.coverArt || undefined}
-                        onPress={() => handleGenreClick(genre.name)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
+            <ExploreSection
+              title="Browse All"
+              isLoading={genresLoading}
+              isEmpty={genres.length === 0}
+              emptyMessage="No genres available"
+            >
+              <View style={styles.genreGrid}>
+                {genres.map((genre) => (
+                  <View key={genre.name} style={styles.genreGridItem}>
+                    <GenreCard
+                      name={genre.name}
+                      color={genre.color}
+                      coverArt={genre.coverArt || undefined}
+                      onPress={() => handleGenreClick(genre.name)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </ExploreSection>
 
             {/* Made for You */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Made for You
-              </Text>
-              {exploreLoading || (madeForYouAlbums.length === 0 && madeForYouPlaylists.length === 0) ? (
-                <View style={styles.sectionLoading}>
-                  {exploreLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                  ) : (
-                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                      No recommendations available
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.grid}>
-                  {madeForYouAlbums.map((album) => (
-                    <View key={album.id} style={styles.gridItem}>
-                      <MediaCard
-                        title={album.title}
-                        subtitle={album.artistName}
-                        type="album"
-                        imageUri={album.coverArt}
-                        onPress={() => router.push(`/album/${album.id}`)}
-                      />
-                    </View>
-                  ))}
-                  {madeForYouPlaylists.map((playlist) => (
-                    <View key={playlist.id} style={styles.gridItem}>
-                      <MediaCard
-                        title={playlist.name}
-                        subtitle={`Playlist • ${playlist.trackCount || 0} songs`}
-                        type="playlist"
-                        imageUri={playlist.coverArt}
-                        onPress={() => router.push(`/playlist/${playlist.id}`)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
+            <ExploreSection
+              title="Made for You"
+              isLoading={madeForYouLoading}
+              isEmpty={madeForYouAlbums.length === 0 && madeForYouPlaylists.length === 0}
+              emptyMessage="No recommendations available"
+            >
+              <View style={styles.grid}>
+                {madeForYouAlbums.map((album) => (
+                  <View key={album.id} style={styles.gridItem}>
+                    <MediaCard
+                      title={album.title}
+                      subtitle={album.artistName}
+                      type="album"
+                      imageUri={album.coverArt}
+                      onPress={() => router.push(`/album/${album.id}`)}
+                    />
+                  </View>
+                ))}
+                {madeForYouPlaylists.map((playlist) => (
+                  <View key={playlist.id} style={styles.gridItem}>
+                    <MediaCard
+                      title={playlist.name}
+                      subtitle={`Playlist • ${playlist.trackCount || 0} songs`}
+                      type="playlist"
+                      imageUri={playlist.coverArt}
+                      onPress={() => router.push(`/playlist/${playlist.id}` as any)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </ExploreSection>
 
             {/* Popular Tracks */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Popular Tracks
-              </Text>
-              {exploreLoading || popularTracks.length === 0 ? (
-                <View style={styles.sectionLoading}>
-                  {exploreLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                  ) : (
-                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                      No tracks available
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.grid}>
-                  {popularTracks.map((track) => (
-                    <View key={track.id} style={styles.gridItem}>
-                      <MediaCard
-                        title={track.title}
-                        subtitle={track.artistName}
-                        type="track"
-                        imageUri={track.coverArt}
-                        onPress={() => handleTrackRowPress(track)}
-                        onPlayPress={() => playTrack(track)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Top Albums */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Top Albums
-              </Text>
-              {exploreLoading || popularAlbums.length === 0 ? (
-                <View style={styles.sectionLoading}>
-                  {exploreLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                  ) : (
-                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                      No albums available
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.grid}>
-                  {popularAlbums.map((album) => (
-                    <View key={album.id} style={styles.gridItem}>
-                      <MediaCard
-                        title={album.title}
-                        subtitle={album.artistName}
-                        type="album"
-                        imageUri={album.coverArt}
-                        onPress={() => router.push(`/album/${album.id}`)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Top Artists */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Top Artists
-              </Text>
-              {exploreLoading || popularArtists.length === 0 ? (
-                <View style={styles.sectionLoading}>
-                  {exploreLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                  ) : (
-                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                      No artists available
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.grid}>
-                  {popularArtists.map((artist) => (
-                    <View key={artist.id} style={styles.gridItem}>
-                      <MediaCard
-                        title={artist.name}
-                        subtitle="Artist"
-                        type="artist"
-                        shape="circle"
-                        imageUri={artist.image}
-                        onPress={() => router.push(`/artist/${artist.id}`)}
-                      />
-                    </View>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Charts */}
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                Charts
-              </Text>
-              {exploreLoading || chartsTracks.length === 0 ? (
-                <View style={styles.sectionLoading}>
-                  {exploreLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
-                  ) : (
-                    <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                      No charts available
-                    </Text>
-                  )}
-                </View>
-              ) : (
-                <View style={styles.trackList}>
-                  {chartsTracks.map((track, index) => (
-                    <TrackRow
-                      key={track.id}
-                      track={track}
-                      index={index}
-                      isCurrentTrack={currentTrack?.id === track.id}
-                      isTrackPlaying={currentTrack?.id === track.id && isPlaying}
+            <ExploreSection
+              title="Popular Tracks"
+              isLoading={popularTracksLoading}
+              isEmpty={popularTracks.length === 0}
+              emptyMessage="No tracks available"
+            >
+              <View style={styles.grid}>
+                {popularTracks.map((track) => (
+                  <View key={track.id} style={styles.gridItem}>
+                    <MediaCard
+                      title={track.title}
+                      subtitle={track.artistName}
+                      type="track"
+                      imageUri={track.coverArt}
                       onPress={() => handleTrackRowPress(track)}
                       onPlayPress={() => handleTrackPress(track)}
                     />
-                  ))}
-                </View>
-              )}
-            </View>
+                  </View>
+                ))}
+              </View>
+            </ExploreSection>
+
+            {/* Top Albums */}
+            <ExploreSection
+              title="Top Albums"
+              isLoading={popularAlbumsLoading}
+              isEmpty={popularAlbums.length === 0}
+              emptyMessage="No albums available"
+            >
+              <View style={styles.grid}>
+                {popularAlbums.map((album) => (
+                  <View key={album.id} style={styles.gridItem}>
+                    <MediaCard
+                      title={album.title}
+                      subtitle={album.artistName}
+                      type="album"
+                      imageUri={album.coverArt}
+                      onPress={() => router.push(`/album/${album.id}`)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </ExploreSection>
+
+            {/* Top Artists */}
+            <ExploreSection
+              title="Top Artists"
+              isLoading={popularArtistsLoading}
+              isEmpty={popularArtists.length === 0}
+              emptyMessage="No artists available"
+            >
+              <View style={styles.grid}>
+                {popularArtists.map((artist) => (
+                  <View key={artist.id} style={styles.gridItem}>
+                    <MediaCard
+                      title={artist.name}
+                      subtitle="Artist"
+                      type="artist"
+                      shape="circle"
+                      imageUri={artist.image}
+                      onPress={() => router.push(`/artist/${artist.id}` as any)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </ExploreSection>
+
+            {/* Charts */}
+            <ExploreSection
+              title="Charts"
+              isLoading={chartsLoading}
+              isEmpty={chartsTracks.length === 0}
+              emptyMessage="No charts available"
+            >
+              <View style={styles.trackList}>
+                {chartsTracks.map((track, index) => (
+                  <TrackRow
+                    key={track.id}
+                    track={track}
+                    index={index}
+                    isCurrentTrack={currentTrack?.id === track.id}
+                    isTrackPlaying={currentTrack?.id === track.id && isPlaying}
+                    onPress={() => handleTrackRowPress(track)}
+                    onPlayPress={() => handleTrackPress(track)}
+                  />
+                ))}
+              </View>
+            </ExploreSection>
           </View>
         )}
 
         {/* Results */}
-        {!loading && showResults && (
+        {!searchLoading && showResults && searchResults && (
           <View style={styles.results}>
             {/* Tracks Section */}
             {(activeCategory === SearchCategory.ALL || activeCategory === SearchCategory.TRACKS) &&
               searchResults.results.tracks &&
               searchResults.results.tracks.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                    Tracks ({searchResults.counts.tracks})
-                  </Text>
+                <ExploreSection
+                  title={`Tracks (${searchResults.counts.tracks})`}
+                  isLoading={false}
+                  isEmpty={false}
+                >
                   <View style={styles.trackList}>
                     {searchResults.results.tracks.map((track, index) => (
                       <TrackRow
@@ -445,17 +389,18 @@ const SearchScreen: React.FC = () => {
                       />
                     ))}
                   </View>
-                </View>
+                </ExploreSection>
               )}
 
             {/* Albums Section */}
             {(activeCategory === SearchCategory.ALL || activeCategory === SearchCategory.ALBUMS) &&
               searchResults.results.albums &&
               searchResults.results.albums.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                    Albums ({searchResults.counts.albums})
-                  </Text>
+                <ExploreSection
+                  title={`Albums (${searchResults.counts.albums})`}
+                  isLoading={false}
+                  isEmpty={false}
+                >
                   <View style={styles.grid}>
                     {searchResults.results.albums.map((album) => (
                       <View key={album.id} style={styles.gridItem}>
@@ -469,17 +414,18 @@ const SearchScreen: React.FC = () => {
                       </View>
                     ))}
                   </View>
-                </View>
+                </ExploreSection>
               )}
 
             {/* Artists Section */}
             {(activeCategory === SearchCategory.ALL || activeCategory === SearchCategory.ARTISTS) &&
               searchResults.results.artists &&
               searchResults.results.artists.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                    Artists ({searchResults.counts.artists})
-                  </Text>
+                <ExploreSection
+                  title={`Artists (${searchResults.counts.artists})`}
+                  isLoading={false}
+                  isEmpty={false}
+                >
                   <View style={styles.grid}>
                     {searchResults.results.artists.map((artist) => (
                       <View key={artist.id} style={styles.gridItem}>
@@ -489,22 +435,23 @@ const SearchScreen: React.FC = () => {
                           type="artist"
                           shape="circle"
                           imageUri={artist.image}
-                          onPress={() => router.push(`/artist/${artist.id}`)}
+                          onPress={() => router.push(`/artist/${artist.id}` as any)}
                         />
                       </View>
                     ))}
                   </View>
-                </View>
+                </ExploreSection>
               )}
 
             {/* Playlists Section */}
             {(activeCategory === SearchCategory.ALL || activeCategory === SearchCategory.PLAYLISTS) &&
               searchResults.results.playlists &&
               searchResults.results.playlists.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
-                    Playlists ({searchResults.counts.playlists})
-                  </Text>
+                <ExploreSection
+                  title={`Playlists (${searchResults.counts.playlists})`}
+                  isLoading={false}
+                  isEmpty={false}
+                >
                   <View style={styles.grid}>
                     {searchResults.results.playlists.map((playlist) => (
                       <View key={playlist.id} style={styles.gridItem}>
@@ -513,12 +460,12 @@ const SearchScreen: React.FC = () => {
                           subtitle={`Playlist • ${playlist.trackCount || 0} songs`}
                           type="playlist"
                           imageUri={playlist.coverArt}
-                          onPress={() => router.push(`/playlist/${playlist.id}`)}
+                          onPress={() => router.push(`/playlist/${playlist.id}` as any)}
                         />
                       </View>
                     ))}
                   </View>
-                </View>
+                </ExploreSection>
               )}
 
             {/* No Results */}
@@ -618,14 +565,6 @@ const styles = StyleSheet.create({
   results: {
     paddingHorizontal: 18,
   },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
   trackList: {
     gap: 4,
   },
@@ -655,16 +594,6 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     fontSize: 16,
-    textAlign: 'center',
-  },
-  sectionLoading: {
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 100,
-  },
-  emptyText: {
-    fontSize: 14,
     textAlign: 'center',
   },
 });

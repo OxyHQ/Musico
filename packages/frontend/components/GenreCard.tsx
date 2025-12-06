@@ -15,7 +15,7 @@ interface GenreCardProps {
  * Genre Card Component
  * Large colorful card for genre browsing (Spotify-like)
  */
-export const GenreCard: React.FC<GenreCardProps> = ({
+export const GenreCard: React.FC<GenreCardProps> = React.memo(({
   name,
   color,
   coverArt,
@@ -92,7 +92,7 @@ export const GenreCard: React.FC<GenreCardProps> = ({
       </LinearGradient>
     </Pressable>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

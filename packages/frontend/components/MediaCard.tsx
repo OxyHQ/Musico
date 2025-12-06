@@ -19,7 +19,7 @@ interface MediaCardProps {
  * Media Card Component
  * Spotify-like card for displaying playlists, albums, artists
  */
-export const MediaCard: React.FC<MediaCardProps> = ({ 
+export const MediaCard: React.FC<MediaCardProps> = React.memo(({ 
   title, 
   subtitle, 
   imageUri, 
@@ -137,7 +137,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({
       </View>
     </Pressable>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
