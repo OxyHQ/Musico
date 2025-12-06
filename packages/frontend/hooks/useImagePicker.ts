@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Platform } from 'react-native';
 import { useOxy } from '@oxyhq/services';
+import { api } from '@/utils/api';
 
 export interface ImagePickerResult {
   uri: string;
@@ -53,7 +54,7 @@ export function useImagePicker(options: UseImagePickerOptions = {}) {
 
       // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing,
         aspect,
         quality,
@@ -88,7 +89,7 @@ export function useImagePicker(options: UseImagePickerOptions = {}) {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: 'images',
         allowsEditing,
         aspect,
         quality,
@@ -114,23 +115,63 @@ export function useImagePicker(options: UseImagePickerOptions = {}) {
   }, [allowsEditing, aspect, quality]);
 
   /**
-   * Upload image to backend and return URL
-   * For now, returns data URL if upload not available
+   * Upload image to backend and return image ID (MongoDB ObjectId string)
+   * Always uploads images - no URL passthrough
    */
   const uploadImage = useCallback(async (imageResult: ImagePickerResult): Promise<string | undefined> => {
     try {
       setIsUploading(true);
       
-      // Try to upload via Oxy services if available
-      // For now, we'll use the local URI as a data URL or pass it directly
-      // In a real implementation, you'd upload to S3/GridFS and get a URL
-      
-      // For now, return the local URI (will work for preview, but not for production)
-      // TODO: Implement actual image upload endpoint
-      return imageResult.uri || undefined;
-    } catch (error) {
+      const formData = new FormData();
+      const uri = imageResult.uri;
+
+      if (Platform.OS === 'web') {
+        // Web: Check if it's a blob URL
+        if (uri.startsWith('blob:')) {
+          // Fetch the blob and create a File object
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          const fileName = `image-${Date.now()}.${blob.type.split('/')[1] || 'jpg'}`;
+          formData.append('image', blob, fileName);
+        } else {
+          // Regular file path - fetch and upload
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          const fileName = `image-${Date.now()}.${blob.type.split('/')[1] || 'jpg'}`;
+          formData.append('image', blob, fileName);
+        }
+      } else {
+        // React Native: Use the URI directly
+        const fileName = uri.split('/').pop() || `image-${Date.now()}.jpg`;
+        const fileType = imageResult.type || 'image/jpeg';
+        formData.append('image', {
+          uri: uri,
+          name: fileName,
+          type: fileType,
+        } as any);
+      }
+
+      // Upload to backend
+      // Use relative path to ensure axios interceptors properly add authentication headers
+      // The api helper's baseURL already includes /api, so don't include it in the endpoint
+      // Explicitly set Content-Type header to match the working pattern in artistService.uploadTrack()
+      const response = await api.post<{ id: string }>(
+        '/images/upload',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      // Return the image ID (MongoDB ObjectId string)
+      // api.post() returns { data: T }, so access response.data.id
+      return response.data.id;
+    } catch (error: any) {
       console.error('Image upload error:', error);
-      Alert.alert('Error', 'Failed to upload image. Please try again.');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to upload image. Please try again.';
+      Alert.alert('Error', errorMessage);
       return undefined;
     } finally {
       setIsUploading(false);

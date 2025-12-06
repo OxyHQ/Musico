@@ -34,13 +34,14 @@ export interface Playlist extends Timestamps {
   description?: string;
   ownerOxyUserId: string;
   ownerUsername: string;
-  coverArt?: string; // URL to playlist cover image
+  coverArt?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first. In API responses, converted to /api/images/:id URL
   visibility: PlaylistVisibility;
   trackCount: number;
   totalDuration: number; // total duration in seconds
   followers?: number;
   isPublic: boolean;
-  dominantColor?: string; // Hex color extracted from cover art (e.g., "#FF5733")
+  primaryColor?: string; // Primary hex color extracted from cover art (e.g., "#FF5733")
+  secondaryColor?: string; // Secondary hex color extracted from cover art (e.g., "#33FF57")
   collaborators?: PlaylistCollaborator[];
 }
 
@@ -68,7 +69,7 @@ export interface PlaylistWithTracks extends Playlist {
 export interface CreatePlaylistRequest {
   name: string;
   description?: string;
-  coverArt?: string;
+  coverArt?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   visibility?: PlaylistVisibility;
   isPublic?: boolean;
 }
@@ -79,7 +80,7 @@ export interface CreatePlaylistRequest {
 export interface UpdatePlaylistRequest {
   name?: string;
   description?: string;
-  coverArt?: string;
+  coverArt?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   visibility?: PlaylistVisibility;
   isPublic?: boolean;
 }

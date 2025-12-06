@@ -30,3 +30,5 @@ const UserMusicPreferencesSchema = new Schema<IUserMusicPreferences>({
 
 export const UserMusicPreferencesModel = mongoose.model<IUserMusicPreferences>('UserMusicPreferences', UserMusicPreferencesSchema);
 
+
+

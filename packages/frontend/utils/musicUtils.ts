@@ -25,3 +25,5 @@ export const formatTotalDuration = (seconds: number): string => {
   return `${mins} min ${secs} sec`;
 };
 
+
+

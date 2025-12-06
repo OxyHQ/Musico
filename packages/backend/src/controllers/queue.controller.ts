@@ -4,7 +4,7 @@ import { Queue, QueueWithMetadata, AddToQueueRequest } from '@musico/shared-type
 import { AuthRequest } from '../middleware/auth';
 import { isDatabaseConnected } from '../utils/database';
 import { TrackModel } from '../models/Track';
-import { toApiFormatArray } from '../utils/musicHelpers';
+import { toApiFormatArray, formatTracksWithCoverArt } from '../utils/musicHelpers';
 import {
   getQueue,
   setQueue,
@@ -105,7 +105,7 @@ export const addToQueue = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     // Format tracks for API
-    const formattedTracks = toApiFormatArray(tracks);
+    const formattedTracks = await formatTracksWithCoverArt(tracks);
 
     // Add to queue
     const updatedQueue = await addTracksToQueue(userId, formattedTracks, position);
@@ -269,4 +269,5 @@ export const setCurrentTrack = async (req: AuthRequest, res: Response, next: Nex
     next(error);
   }
 };
+
 

@@ -3,7 +3,7 @@ import { TrackModel } from '../models/Track';
 import { AlbumModel } from '../models/Album';
 import { ArtistModel } from '../models/Artist';
 import { PlaylistModel } from '../models/Playlist';
-import { toApiFormatArray } from '../utils/musicHelpers';
+import { toApiFormatArray, formatTracksWithCoverArt, formatArtistsWithImage, formatPlaylistsWithCoverArt, formatAlbumsWithCoverArt } from '../utils/musicHelpers';
 import { isDatabaseConnected } from '../utils/database';
 
 /**
@@ -99,7 +99,7 @@ export const getPopularTracks = async (req: Request, res: Response, next: NextFu
       .limit(limit)
       .lean();
 
-    const formattedTracks = toApiFormatArray(tracks);
+    const formattedTracks = await formatTracksWithCoverArt(tracks);
 
     res.json({
       tracks: formattedTracks,
@@ -161,7 +161,7 @@ export const getPopularArtists = async (req: Request, res: Response, next: NextF
       .limit(limit)
       .lean();
 
-    const formattedArtists = toApiFormatArray(artists);
+    const formattedArtists = formatArtistsWithImage(artists);
 
     res.json({
       artists: formattedArtists,
@@ -199,8 +199,8 @@ export const getMadeForYou = async (req: Request, res: Response, next: NextFunct
     ]);
 
     res.json({
-      albums: toApiFormatArray(albums),
-      playlists: toApiFormatArray(playlists),
+      albums: formatAlbumsWithCoverArt(albums),
+      playlists: formatPlaylistsWithCoverArt(playlists),
     });
   } catch (error) {
     next(error);
@@ -224,7 +224,7 @@ export const getCharts = async (req: Request, res: Response, next: NextFunction)
       .limit(limit)
       .lean();
 
-    const formattedTracks = toApiFormatArray(tracks);
+    const formattedTracks = await formatTracksWithCoverArt(tracks);
 
     res.json({
       tracks: formattedTracks,
@@ -234,4 +234,5 @@ export const getCharts = async (req: Request, res: Response, next: NextFunction)
     next(error);
   }
 };
+
 

@@ -1,12 +1,13 @@
-import React from 'react';
-import { StyleSheet, View, Text, Pressable, Image, Platform, Alert } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View, Text, Pressable, Image, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useImagePicker, ImagePickerResult } from '@/hooks/useImagePicker';
+import { getApiOrigin } from '@/utils/api';
 
 interface CoverArtPickerProps {
-  value?: string; // Image URI
-  onChange: (uri: string | null) => void;
+  value?: string; // Image ID (MongoDB ObjectId string) or URL for display
+  onChange: (imageId: string | null) => void; // Callback with image ID
   size?: number;
   disabled?: boolean;
 }
@@ -22,21 +23,32 @@ export const CoverArtPicker: React.FC<CoverArtPickerProps> = ({
   disabled = false,
 }) => {
   const theme = useTheme();
-  const { pickImage, takePhoto } = useImagePicker({
+  const { pickImage, takePhoto, uploadImage, isUploading } = useImagePicker({
     allowsEditing: true,
     aspect: [1, 1],
     quality: 0.8,
   });
 
+  // Convert image ID to display URL
+  const imageUrl = useMemo(() => {
+    if (!value) return null;
+    // Treat value as image ID and convert to URL
+    const apiOrigin = getApiOrigin();
+    return `${apiOrigin}/api/images/${value}`;
+  }, [value]);
+
   const handlePickImage = async () => {
-    if (disabled) return;
+    if (disabled || isUploading) return;
 
     // Show action sheet to choose source
     if (Platform.OS === 'web') {
       // Web: Just open library picker
       const result = await pickImage('library');
       if (result) {
-        onChange(result.uri);
+        const imageId = await uploadImage(result);
+        if (imageId) {
+          onChange(imageId);
+        }
       }
     } else {
       // Native: Show options
@@ -49,7 +61,10 @@ export const CoverArtPicker: React.FC<CoverArtPickerProps> = ({
             onPress: async () => {
               const result = await pickImage('library');
               if (result) {
-                onChange(result.uri);
+                const imageId = await uploadImage(result);
+                if (imageId) {
+                  onChange(imageId);
+                }
               }
             },
           },
@@ -58,7 +73,10 @@ export const CoverArtPicker: React.FC<CoverArtPickerProps> = ({
             onPress: async () => {
               const result = await takePhoto();
               if (result) {
-                onChange(result.uri);
+                const imageId = await uploadImage(result);
+                if (imageId) {
+                  onChange(imageId);
+                }
               }
             },
           },
@@ -88,13 +106,20 @@ export const CoverArtPicker: React.FC<CoverArtPickerProps> = ({
           height: size,
           backgroundColor: theme.colors.backgroundSecondary,
           borderColor: theme.colors.border,
-          opacity: disabled ? 0.5 : 1,
+          opacity: disabled || isUploading ? 0.5 : 1,
         },
       ]}
     >
-      {value ? (
+      {isUploading ? (
+        <View style={styles.uploadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.uploadingText, { color: theme.colors.textSecondary }]}>
+            Uploading...
+          </Text>
+        </View>
+      ) : imageUrl ? (
         <Image
-          source={{ uri: value }}
+          source={{ uri: imageUrl }}
           style={[styles.image, { width: size, height: size }]}
           resizeMode="cover"
         />
@@ -192,6 +217,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  uploadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  uploadingText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

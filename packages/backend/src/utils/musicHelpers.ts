@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { AlbumModel } from '../models/Album';
 
 /**
  * Convert MongoDB document to API format
@@ -47,5 +48,132 @@ export function toApiFormatArray<T extends { _id?: mongoose.Types.ObjectId | str
   docs: T[]
 ): (T & { id: string })[] {
   return docs.map(doc => toApiFormat(doc)!).filter(Boolean);
+}
+
+/**
+ * Format track with album cover fallback
+ * If track doesn't have coverArt but has albumId, use album's coverArt
+ * Converts coverArt ObjectId to /api/images/:id URL
+ */
+export async function formatTrackWithCoverArt(
+  track: any,
+  albumCache?: Map<string, any>
+): Promise<any> {
+  const formatted = toApiFormat(track);
+  if (!formatted) return null;
+
+  // If track has coverArt, convert ObjectId to URL
+  if (formatted.coverArt) {
+    formatted.coverArt = `/api/images/${formatted.coverArt}`;
+    return formatted;
+  }
+
+  // If track has albumId but no coverArt, fetch album and use its coverArt
+  if (formatted.albumId) {
+    let album;
+    
+    // Check cache first
+    if (albumCache && albumCache.has(formatted.albumId)) {
+      album = albumCache.get(formatted.albumId);
+    } else {
+      // Fetch album from database
+      try {
+        album = await AlbumModel.findById(formatted.albumId).lean();
+        if (albumCache) {
+          albumCache.set(formatted.albumId, album);
+        }
+      } catch (error) {
+        // If album fetch fails, return track without coverArt
+        return formatted;
+      }
+    }
+
+    if (album && album.coverArt) {
+      formatted.coverArt = `/api/images/${album.coverArt}`;
+    }
+  }
+
+  return formatted;
+}
+
+/**
+ * Format array of tracks with album cover fallback
+ * Uses caching to avoid fetching the same album multiple times
+ */
+export async function formatTracksWithCoverArt(tracks: any[]): Promise<any[]> {
+  const albumCache = new Map<string, any>();
+  const formattedTracks = await Promise.all(
+    tracks.map(track => formatTrackWithCoverArt(track, albumCache))
+  );
+  return formattedTracks.filter(Boolean);
+}
+
+/**
+ * Format album with coverArt URL conversion
+ * Converts coverArt ObjectId to /api/images/:id URL
+ */
+export function formatAlbumWithCoverArt(album: any): any {
+  const formatted = toApiFormat(album);
+  if (!formatted) return null;
+
+  // Convert coverArt ObjectId to URL
+  if (formatted.coverArt) {
+    formatted.coverArt = `/api/images/${formatted.coverArt}`;
+  }
+
+  return formatted;
+}
+
+/**
+ * Format array of albums with coverArt URL conversion
+ */
+export function formatAlbumsWithCoverArt(albums: any[]): any[] {
+  return albums.map(album => formatAlbumWithCoverArt(album)).filter(Boolean);
+}
+
+/**
+ * Format playlist with coverArt URL conversion
+ * Converts coverArt ObjectId to /api/images/:id URL
+ */
+export function formatPlaylistWithCoverArt(playlist: any): any {
+  const formatted = toApiFormat(playlist);
+  if (!formatted) return null;
+
+  // Convert coverArt ObjectId to URL
+  if (formatted.coverArt) {
+    formatted.coverArt = `/api/images/${formatted.coverArt}`;
+  }
+
+  return formatted;
+}
+
+/**
+ * Format array of playlists with coverArt URL conversion
+ */
+export function formatPlaylistsWithCoverArt(playlists: any[]): any[] {
+  return playlists.map(playlist => formatPlaylistWithCoverArt(playlist)).filter(Boolean);
+}
+
+/**
+ * Format artist with image URL conversion
+ * Converts image ObjectId to /api/images/:id URL
+ */
+export function formatArtistWithImage(artist: any): any {
+  const formatted = toApiFormat(artist);
+  if (!formatted) return null;
+
+  // Convert image ObjectId to URL
+  if (formatted.image) {
+    formatted.image = `/api/images/${formatted.image}`;
+  }
+
+  return formatted;
+}
+
+/**
+ * Format array of artists with image URL conversion
+ */
+export function formatArtistsWithImage(artists: any[]): any[] {
+  return artists.map(artist => formatArtistWithImage(artist)).filter(Boolean);
 }
 

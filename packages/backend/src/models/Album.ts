@@ -20,7 +20,8 @@ const AlbumSchema = new Schema<IAlbum>({
   upc: { type: String, unique: true, sparse: true },
   popularity: { type: Number, default: 0, min: 0, max: 100 },
   isExplicit: { type: Boolean, default: false, index: true },
-  dominantColor: { type: String },
+  primaryColor: { type: String },
+  secondaryColor: { type: String },
 }, {
   timestamps: true,
 });

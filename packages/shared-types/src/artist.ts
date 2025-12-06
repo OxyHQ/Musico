@@ -16,6 +16,16 @@ export interface ArtistStats {
 }
 
 /**
+ * Strike information for an artist
+ */
+export interface ArtistStrike {
+  _id?: string;
+  reason: string;
+  createdAt: string;
+  trackId?: string;
+}
+
+/**
  * Artist - A music artist/band
  */
 export interface Artist extends Timestamps {
@@ -23,13 +33,18 @@ export interface Artist extends Timestamps {
   _id?: string;
   name: string;
   bio?: string;
-  image?: string; // URL to artist image/photo
+  image?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first. In API responses, converted to /api/images/:id URL
   genres?: string[];
   verified?: boolean;
   popularity?: number; // 0-100
-  dominantColor?: string; // Hex color extracted from image (e.g., "#FF5733")
+  primaryColor?: string; // Primary hex color extracted from image (e.g., "#FF5733")
+  secondaryColor?: string; // Secondary hex color extracted from image (e.g., "#33FF57")
   ownerOxyUserId?: string; // User who owns this artist profile
   stats: ArtistStats;
+  strikeCount?: number;
+  strikes?: ArtistStrike[];
+  uploadsDisabled?: boolean;
+  lastStrikeAt?: string;
 }
 
 /**
@@ -45,7 +60,7 @@ export interface ArtistWithContext extends Artist {
 export interface CreateArtistRequest {
   name: string;
   bio?: string;
-  image?: string;
+  image?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   genres?: string[];
   verified?: boolean;
 }
@@ -56,7 +71,7 @@ export interface CreateArtistRequest {
 export interface UpdateArtistRequest {
   name?: string;
   bio?: string;
-  image?: string;
+  image?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   genres?: string[];
   verified?: boolean;
 }
@@ -96,6 +111,8 @@ export interface ArtistDashboard {
   totalAlbums: number;
   totalPlays: number;
   followers: number;
+  strikeCount: number;
+  uploadsDisabled: boolean;
   recentTracks: Array<{
     id: string;
     title: string;
@@ -107,6 +124,12 @@ export interface ArtistDashboard {
     title: string;
     createdAt: string;
     totalTracks: number;
+  }>;
+  copyrightRemovedTracks: Array<{
+    id: string;
+    title: string;
+    removedAt: string;
+    removedReason?: string;
   }>;
 }
 

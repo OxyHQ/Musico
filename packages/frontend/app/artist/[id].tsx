@@ -117,10 +117,11 @@ const ArtistScreen: React.FC = () => {
     };
   });
 
-  // Get gradient colors from artist dominantColor or fallback to theme primary
+  // Get gradient colors from artist primaryColor or fallback to theme primary
+  // 2-stop gradient: primaryColor -> theme background
   const getGradientColors = (): [string, string] => {
-    const topColor = artist?.dominantColor
-      ? artist.dominantColor
+    const topColor = artist?.primaryColor
+      ? artist.primaryColor
       : theme.colors.primary;
     return [topColor, theme.colors.background];
   };
@@ -727,4 +728,5 @@ const styles = StyleSheet.create({
 });
 
 export default ArtistScreen;
+
 

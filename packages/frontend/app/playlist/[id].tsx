@@ -130,10 +130,11 @@ const PlaylistScreen: React.FC = () => {
     return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
   };
 
-  // Get gradient colors from playlist dominantColor or fallback to theme primary
+  // Get gradient colors from playlist primaryColor or fallback to theme primary
+  // 2-stop gradient: primaryColor -> theme background
   const getGradientColors = (): [string, string] => {
-    const topColor = playlist?.dominantColor
-      ? playlist.dominantColor
+    const topColor = playlist?.primaryColor
+      ? playlist.primaryColor
       : theme.colors.primary;
     return [topColor, theme.colors.background];
   };

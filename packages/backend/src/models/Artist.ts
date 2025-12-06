@@ -13,6 +13,12 @@ const ArtistStatsSchema = new Schema<ArtistStats>({
   monthlyListeners: { type: Number, default: 0 },
 }, { _id: false });
 
+const StrikeSchema = new Schema({
+  reason: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+  trackId: { type: String },
+}, { _id: true });
+
 const ArtistSchema = new Schema<IArtist>({
   name: { type: String, required: true, index: true, unique: true },
   bio: { type: String },
@@ -20,7 +26,8 @@ const ArtistSchema = new Schema<IArtist>({
   genres: [{ type: String, index: true }],
   verified: { type: Boolean, default: false, index: true },
   popularity: { type: Number, default: 0, min: 0, max: 100 },
-  dominantColor: { type: String },
+  primaryColor: { type: String },
+  secondaryColor: { type: String },
   ownerOxyUserId: { type: String }, // Link artist to user
   stats: { type: ArtistStatsSchema, default: () => ({
     followers: 0,
@@ -29,6 +36,10 @@ const ArtistSchema = new Schema<IArtist>({
     totalPlays: 0,
     monthlyListeners: 0,
   }) },
+  strikeCount: { type: Number, default: 0, min: 0 },
+  strikes: [{ type: StrikeSchema }],
+  uploadsDisabled: { type: Boolean, default: false, index: true },
+  lastStrikeAt: { type: Date },
 }, {
   timestamps: true,
 });

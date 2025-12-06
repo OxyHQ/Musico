@@ -4,7 +4,7 @@ import { TrackModel } from '../models/Track';
 import { AlbumModel } from '../models/Album';
 import { ArtistModel } from '../models/Artist';
 import { PlaylistModel } from '../models/Playlist';
-import { toApiFormatArray } from '../utils/musicHelpers';
+import { toApiFormatArray, formatTracksWithCoverArt, formatAlbumsWithCoverArt, formatArtistsWithImage, formatPlaylistsWithCoverArt } from '../utils/musicHelpers';
 import { isDatabaseConnected } from '../utils/database';
 
 /**
@@ -162,16 +162,16 @@ export const search = async (req: Request, res: Response, next: NextFunction) =>
 
     // Format results
     const formattedTracks = categoryValue === SearchCategory.ALL || categoryValue === SearchCategory.TRACKS
-      ? toApiFormatArray(tracksResult[0])
+      ? await formatTracksWithCoverArt(tracksResult[0])
       : [];
     const formattedAlbums = categoryValue === SearchCategory.ALL || categoryValue === SearchCategory.ALBUMS
-      ? toApiFormatArray(albumsResult[0])
+      ? formatAlbumsWithCoverArt(albumsResult[0])
       : [];
     const formattedArtists = categoryValue === SearchCategory.ALL || categoryValue === SearchCategory.ARTISTS
-      ? toApiFormatArray(artistsResult[0])
+      ? formatArtistsWithImage(artistsResult[0])
       : [];
     const formattedPlaylists = categoryValue === SearchCategory.ALL || categoryValue === SearchCategory.PLAYLISTS
-      ? toApiFormatArray(playlistsResult[0])
+      ? formatPlaylistsWithCoverArt(playlistsResult[0])
       : [];
 
     // Calculate counts and totals

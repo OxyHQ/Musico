@@ -23,7 +23,8 @@ const PlaylistSchema = new Schema<IPlaylist>({
   totalDuration: { type: Number, default: 0 }, // in seconds
   followers: { type: Number, default: 0 },
   isPublic: { type: Boolean, default: false, index: true },
-  dominantColor: { type: String },
+  primaryColor: { type: String },
+  secondaryColor: { type: String },
   collaborators: [{ type: PlaylistCollaboratorSchema }],
 }, {
   timestamps: true,

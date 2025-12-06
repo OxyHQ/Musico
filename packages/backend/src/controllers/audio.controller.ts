@@ -1,12 +1,22 @@
+/**
+ * Audio Controller
+ * Handles audio streaming, metadata, and URL generation endpoints
+ */
+
 import { Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
-import { TrackModel } from '../models/Track';
-import { streamTrackAudio, getTrackAudioMetadata } from '../services/audioStorageService';
-import { toApiFormat } from '../utils/musicHelpers';
+import { streamTrackAudio, getTrackAudioMetadata, getTrackStreamUrl } from '../services/audioStorageService';
+import {
+  fetchAndValidateTrack,
+  validateAudioFileExists,
+  sendErrorResponse,
+} from './audio.controller.helpers';
 
 /**
  * Parse Range header (e.g., "bytes=0-1023" or "bytes=1024-")
+ * @param rangeHeader - The Range header value
+ * @param fileSize - Total file size in bytes
+ * @returns Parsed range with start and end, or null if invalid
  */
 function parseRange(rangeHeader: string, fileSize: number): { start: number; end: number } | null {
   if (!rangeHeader) return null;
@@ -26,36 +36,52 @@ function parseRange(rangeHeader: string, fileSize: number): { start: number; end
 }
 
 /**
+ * Setup stream error handler
+ * @param stream - The stream to handle errors for
+ * @param res - Express response object
+ */
+function setupStreamErrorHandler(stream: NodeJS.ReadableStream, res: Response): void {
+  stream.on('error', (error) => {
+    logger.error('[AudioController] Stream error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Stream error' });
+    }
+  });
+}
+
+/**
  * Stream audio file with Range Request support (Spotify-style)
  * GET /api/audio/:trackId
- * Uses MongoDB ObjectId to identify tracks
+ * 
+ * Supports HTTP Range requests for seeking and progressive loading.
+ * Uses MongoDB ObjectId to identify tracks.
+ * 
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function
  */
 export const streamAudio = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { trackId } = req.params;
     
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(trackId)) {
-      return res.status(400).json({ error: 'Invalid track ID' });
+    // Validate and fetch track
+    const validation = await fetchAndValidateTrack(trackId);
+    if (!validation.isValid || !validation.track) {
+      return sendErrorResponse(res, validation.statusCode || 400, validation.error || 'Invalid request');
     }
 
-    // Fetch track from database
-    const trackDoc = await TrackModel.findById(trackId).lean();
-    if (!trackDoc) {
-      return res.status(404).json({ error: 'Track not found' });
+    const track = validation.track;
+
+    // Validate audio file exists
+    const fileValidation = await validateAudioFileExists(track);
+    if (!fileValidation.isValid) {
+      return sendErrorResponse(res, fileValidation.statusCode || 404, fileValidation.error || 'Audio file not found');
     }
 
-    const track = toApiFormat(trackDoc);
-
-    // Check if track is available
-    if (!track.isAvailable) {
-      return res.status(403).json({ error: 'Track is not available' });
-    }
-
-    // Get audio metadata from S3
+    // Get audio metadata
     const metadata = await getTrackAudioMetadata(track);
     if (!metadata || !metadata.contentLength) {
-      return res.status(404).json({ error: 'Audio file not found in storage' });
+      return sendErrorResponse(res, 404, 'Audio file not found in storage');
     }
 
     const fileSize = metadata.contentLength;
@@ -96,13 +122,7 @@ export const streamAudio = async (req: Request, res: Response, next: NextFunctio
 
       // Pipe stream to response
       stream.pipe(res);
-
-      stream.on('error', (error) => {
-        logger.error('[AudioController] Stream error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Stream error' });
-        }
-      });
+      setupStreamErrorHandler(stream, res);
     } else {
       // No range header - send entire file
       const { stream, contentLength } = await streamTrackAudio(track);
@@ -111,13 +131,7 @@ export const streamAudio = async (req: Request, res: Response, next: NextFunctio
       res.setHeader('Content-Length', contentLength);
 
       stream.pipe(res);
-
-      stream.on('error', (error) => {
-        logger.error('[AudioController] Stream error:', error);
-        if (!res.headersSent) {
-          res.status(500).json({ error: 'Stream error' });
-        }
-      });
+      setupStreamErrorHandler(stream, res);
     }
   } catch (error) {
     logger.error('[AudioController] Error streaming audio:', error);
@@ -130,28 +144,29 @@ export const streamAudio = async (req: Request, res: Response, next: NextFunctio
 /**
  * Get audio file metadata
  * GET /api/audio/:trackId/info
+ * 
+ * Returns metadata about the audio file including size, MIME type, and modification date.
+ * 
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function
  */
 export const getAudioInfo = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { trackId } = req.params;
     
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(trackId)) {
-      return res.status(400).json({ error: 'Invalid track ID' });
+    // Validate and fetch track
+    const validation = await fetchAndValidateTrack(trackId);
+    if (!validation.isValid || !validation.track) {
+      return sendErrorResponse(res, validation.statusCode || 400, validation.error || 'Invalid request');
     }
 
-    // Fetch track from database
-    const trackDoc = await TrackModel.findById(trackId).lean();
-    if (!trackDoc) {
-      return res.status(404).json({ error: 'Track not found' });
-    }
-
-    const track = toApiFormat(trackDoc);
+    const track = validation.track;
 
     // Get audio metadata from S3
     const metadata = await getTrackAudioMetadata(track);
     if (!metadata) {
-      return res.status(404).json({ error: 'Audio file not found in storage' });
+      return sendErrorResponse(res, 404, 'Audio file not found in storage');
     }
 
     res.json({
@@ -167,3 +182,45 @@ export const getAudioInfo = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+/**
+ * Get authenticated audio URL (pre-signed S3 URL)
+ * GET /api/audio/:trackId/url
+ * 
+ * Returns a pre-signed URL that can be used directly by audio players
+ * without authentication headers. The URL is valid for 1 hour.
+ * 
+ * @param req - Express request object
+ * @param res - Express response object
+ * @param next - Express next function
+ */
+export const getAudioUrl = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { trackId } = req.params;
+    
+    // Validate and fetch track
+    const validation = await fetchAndValidateTrack(trackId);
+    if (!validation.isValid || !validation.track) {
+      return sendErrorResponse(res, validation.statusCode || 400, validation.error || 'Invalid request');
+    }
+
+    const track = validation.track;
+
+    // Verify audio file exists in S3
+    const fileValidation = await validateAudioFileExists(track);
+    if (!fileValidation.isValid) {
+      return sendErrorResponse(res, fileValidation.statusCode || 404, fileValidation.error || 'Audio file not found');
+    }
+
+    // Get pre-signed S3 URL (valid for 1 hour)
+    const presignedUrl = await getTrackStreamUrl(track);
+
+    res.json({
+      url: presignedUrl,
+      trackId: track.id,
+      expiresIn: 3600, // 1 hour in seconds
+    });
+  } catch (error) {
+    logger.error('[AudioController] Error getting audio URL:', error);
+    next(error);
+  }
+};

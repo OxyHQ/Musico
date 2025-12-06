@@ -70,12 +70,28 @@ NODE_ENV=development
 OPENAI_API_KEY=your_openai_api_key
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 
-# AWS S3 Configuration (for audio file storage)
-AWS_REGION=us-east-1
+# S3 Configuration (for audio file storage)
+# Supports AWS S3, DigitalOcean Spaces, LocalStack, MinIO, and other S3-compatible services
+
+AWS_REGION=us-east-1  # For DigitalOcean Spaces, use the region (e.g., ams3, nyc3)
 AWS_S3_BUCKET_NAME=musico-bucket
+
+# Credential Options (supports both formats):
+# Option 1: DigitalOcean Spaces (recommended when using Spaces)
+SPACES_KEY=your_spaces_access_key
+SPACES_SECRET=your_spaces_secret_key
+
+# Option 2: AWS S3 or generic S3-compatible services
 AWS_ACCESS_KEY_ID=your_aws_access_key_id
 AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
-AWS_ENDPOINT_URL=http://localhost:4566  # Optional: Custom endpoint for LocalStack, MinIO, etc.
+
+# Endpoint Configuration
+# For DigitalOcean Spaces: https://<REGION>.digitaloceanspaces.com (e.g., https://ams3.digitaloceanspaces.com)
+# For LocalStack: http://localhost:4566
+# For MinIO: http://localhost:9000
+# For AWS S3: Leave unset (uses default AWS endpoints)
+AWS_ENDPOINT_URL=https://ams3.digitaloceanspaces.com  # Optional: Custom endpoint
+
 S3_AUDIO_PREFIX=audio
 ```
 
@@ -327,20 +343,59 @@ vercel --prod
 
 ## Audio File Storage
 
-Audio files are stored in AWS S3. The API handles:
+Audio files are stored in S3-compatible storage (AWS S3, DigitalOcean Spaces, LocalStack, MinIO, etc.). The API handles:
 - Uploading audio files to S3
 - Generating presigned URLs for secure audio streaming
 - Managing audio file metadata
 
 ### S3 Configuration
+
+The configuration supports multiple S3-compatible services with automatic detection:
+
+#### Environment Variables
+
 Set these env vars in `packages/backend/.env`:
-```
+
+**Required:**
+- `AWS_REGION` - Region for your S3 service (e.g., `us-east-1` for AWS, `ams3` for DigitalOcean Spaces)
+- `AWS_S3_BUCKET_NAME` - Your bucket name
+
+**Credentials (choose one format):**
+- **DigitalOcean Spaces**: `SPACES_KEY` and `SPACES_SECRET`
+- **AWS S3 / Generic**: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+
+**Optional:**
+- `AWS_ENDPOINT_URL` - Custom endpoint URL (required for DigitalOcean Spaces, LocalStack, MinIO, etc.)
+- `S3_AUDIO_PREFIX` - Prefix for audio files in bucket (default: `audio`)
+
+#### Auto-Detection Features
+
+- **DigitalOcean Spaces**: Automatically detected by endpoint URL (`*.digitaloceanspaces.com`). Uses virtual-hosted-style addressing.
+- **LocalStack/MinIO**: Automatically configured with path-style addressing for compatibility.
+- **AWS S3**: Uses default AWS endpoints when no custom endpoint is provided.
+
+Example configurations:
+
+```env
+# DigitalOcean Spaces
+AWS_REGION=ams3
+AWS_S3_BUCKET_NAME=musico-bucket
+SPACES_KEY=your_spaces_key
+SPACES_SECRET=your_spaces_secret
+AWS_ENDPOINT_URL=https://ams3.digitaloceanspaces.com
+
+# AWS S3
 AWS_REGION=us-east-1
 AWS_S3_BUCKET_NAME=musico-audio
-AWS_ACCESS_KEY_ID=your_aws_access_key_id
-AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
-AWS_ENDPOINT_URL=http://localhost:4566  # Optional: Custom endpoint for LocalStack, MinIO, etc.
-S3_AUDIO_PREFIX=audio
+AWS_ACCESS_KEY_ID=your_aws_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret
+
+# LocalStack (for local development)
+AWS_REGION=us-east-1
+AWS_S3_BUCKET_NAME=musico-bucket
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+AWS_ENDPOINT_URL=http://localhost:4566
 ```
 
 ## Troubleshooting Guide

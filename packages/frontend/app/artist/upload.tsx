@@ -62,6 +62,7 @@ const ArtistUploadScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadsDisabled, setUploadsDisabled] = useState(false);
 
   // Blob URL management for audio file preview
   const { url: audioBlobUrl, setFile: setAudioBlobFile, clear: clearAudioBlob } = useFileBlobUrl();
@@ -97,6 +98,14 @@ const ArtistUploadScreen: React.FC = () => {
         toast.error('You need to register as an artist first');
         router.push('/artist/register');
         return;
+      }
+      
+      // Check if uploads are disabled
+      if (profile.uploadsDisabled) {
+        setUploadsDisabled(true);
+        toast.error('Uploads are disabled due to copyright strikes');
+      } else {
+        setUploadsDisabled(false);
       }
       setArtist(profile);
     } catch (error: any) {
@@ -213,6 +222,11 @@ const ArtistUploadScreen: React.FC = () => {
       return;
     }
 
+    if (uploadsDisabled) {
+      toast.error('Uploads are disabled due to copyright strikes. Please contact support.');
+      return;
+    }
+
     if (!validateSongForm()) {
       return;
     }
@@ -269,11 +283,16 @@ const ArtistUploadScreen: React.FC = () => {
     } finally {
       setIsUploading(false);
     }
-  }, [songTitle, songAlbumId, songCoverArt, songGenre, songIsExplicit, songDuration, audioFile, audioBlobUrl, artist, isAuthenticated, router, clearAudioBlob]);
+  }, [songTitle, songAlbumId, songCoverArt, songGenre, songIsExplicit, songDuration, audioFile, audioBlobUrl, artist, isAuthenticated, uploadsDisabled, router, clearAudioBlob]);
 
   const handleCreateAlbum = useCallback(async () => {
     if (!isAuthenticated || !artist) {
       toast.error('You must be logged in and have an artist profile');
+      return;
+    }
+
+    if (uploadsDisabled) {
+      toast.error('Uploads are disabled due to copyright strikes. Please contact support.');
       return;
     }
 
@@ -671,10 +690,32 @@ const ArtistUploadScreen: React.FC = () => {
                 </Pressable>
               </View>
 
+              {/* Upload Disabled Warning */}
+              {uploadsDisabled && (
+                <View style={[styles.warningBanner, { 
+                  backgroundColor: theme.colors.error + '20',
+                  borderColor: theme.colors.error,
+                }]}>
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={24}
+                    color={theme.colors.error}
+                  />
+                  <View style={styles.warningContent}>
+                    <Text style={[styles.warningTitle, { color: theme.colors.error }]}>
+                      Uploads Disabled
+                    </Text>
+                    <Text style={[styles.warningText, { color: theme.colors.textSecondary }]}>
+                      Your uploads have been disabled due to copyright strikes. Please contact support for assistance.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* Upload Button */}
               <Pressable
                 onPress={handleUploadSong}
-                disabled={isUploading || !songTitle.trim() || !audioFile || !songDuration}
+                disabled={isUploading || uploadsDisabled || !songTitle.trim() || !audioFile || !songDuration}
                 style={[
                   styles.submitButton,
                   {
@@ -897,10 +938,32 @@ const ArtistUploadScreen: React.FC = () => {
                 </Pressable>
               </View>
 
+              {/* Upload Disabled Warning */}
+              {uploadsDisabled && (
+                <View style={[styles.warningBanner, { 
+                  backgroundColor: theme.colors.error + '20',
+                  borderColor: theme.colors.error,
+                }]}>
+                  <MaterialCommunityIcons
+                    name="alert-circle"
+                    size={24}
+                    color={theme.colors.error}
+                  />
+                  <View style={styles.warningContent}>
+                    <Text style={[styles.warningTitle, { color: theme.colors.error }]}>
+                      Uploads Disabled
+                    </Text>
+                    <Text style={[styles.warningText, { color: theme.colors.textSecondary }]}>
+                      Your uploads have been disabled due to copyright strikes. Please contact support for assistance.
+                    </Text>
+                  </View>
+                </View>
+              )}
+
               {/* Create Button */}
               <Pressable
                 onPress={handleCreateAlbum}
-                disabled={isUploading || !albumTitle.trim() || !albumReleaseDate || !albumCoverArt}
+                disabled={isUploading || uploadsDisabled || !albumTitle.trim() || !albumReleaseDate || !albumCoverArt}
                 style={[
                   styles.submitButton,
                   {
@@ -1073,6 +1136,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+    marginBottom: 16,
+  },
+  warningContent: {
+    flex: 1,
+    gap: 4,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
 

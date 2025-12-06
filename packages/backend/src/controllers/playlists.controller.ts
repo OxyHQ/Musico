@@ -4,8 +4,8 @@ import { Playlist, PlaylistVisibility, PlaylistWithTracks } from '@musico/shared
 import { PlaylistModel } from '../models/Playlist';
 import { PlaylistTrackModel } from '../models/PlaylistTrack';
 import { TrackModel } from '../models/Track';
-import { extractDominantColor } from '../services/colorExtractionService';
-import { toApiFormat, toApiFormatArray } from '../utils/musicHelpers';
+import { extractColorsFromImage } from '../utils/colorHelper';
+import { toApiFormat, toApiFormatArray, formatTrackWithCoverArt, formatPlaylistWithCoverArt, formatPlaylistsWithCoverArt } from '../utils/musicHelpers';
 import { isDatabaseConnected } from '../utils/database';
 import { AuthRequest } from '../middleware/auth';
 
@@ -96,7 +96,7 @@ export const getUserPlaylists = async (req: AuthRequest, res: Response, next: Ne
       .sort({ createdAt: -1 })
       .lean();
 
-    const formattedPlaylists = toApiFormatArray(playlists);
+    const formattedPlaylists = formatPlaylistsWithCoverArt(playlists);
 
     res.json({
       playlists: formattedPlaylists,
@@ -135,7 +135,7 @@ export const getPlaylistById = async (req: AuthRequest, res: Response, next: Nex
       return res.status(404).json({ error: 'Playlist not found' });
     }
 
-    const formattedPlaylist = toApiFormat(playlist);
+    const formattedPlaylist = formatPlaylistWithCoverArt(playlist);
     res.json(formattedPlaylist);
   } catch (error) {
     next(error);
@@ -177,12 +177,12 @@ export const getPlaylistTracks = async (req: AuthRequest, res: Response, next: N
     const trackMap = new Map(tracks.map(t => [t._id.toString(), t]));
 
     // Build ordered tracks array
-    const orderedTracks = playlistTracks
-      .map(pt => {
+    const orderedTracks = await Promise.all(
+      playlistTracks.map(async (pt) => {
         const track = trackMap.get(pt.trackId);
         if (!track) return null;
         return {
-          track: toApiFormat(track),
+          track: await formatTrackWithCoverArt(track),
           playlistTrack: {
             trackId: pt.trackId,
             addedAt: pt.addedAt,
@@ -191,12 +191,13 @@ export const getPlaylistTracks = async (req: AuthRequest, res: Response, next: N
           },
         };
       })
-      .filter(Boolean);
+    );
+    const filteredTracks = orderedTracks.filter(Boolean);
 
     res.json({
-      tracks: orderedTracks.map(ot => ot!.track),
-      playlistTracks: orderedTracks.map(ot => ot!.playlistTrack),
-      total: orderedTracks.length,
+      tracks: filteredTracks.map(ot => ot!.track),
+      playlistTracks: filteredTracks.map(ot => ot!.playlistTrack),
+      total: filteredTracks.length,
     });
   } catch (error) {
     next(error);
@@ -226,14 +227,32 @@ export const createPlaylist = async (req: AuthRequest, res: Response, next: Next
       return res.status(400).json({ error: 'Playlist name is required' });
     }
 
-    // Extract dominant color from cover art if provided
-    let dominantColor: string | undefined;
-    if (coverArt) {
+    // Validate coverArt if provided - must be a valid MongoDB ObjectId string
+    if (coverArt !== undefined && coverArt !== null) {
+      // Reject blob URLs, http/https URLs, or any other format
+      if (coverArt.startsWith('blob:') || coverArt.startsWith('http://') || coverArt.startsWith('https://') || coverArt.startsWith('/api/')) {
+        return res.status(400).json({ 
+          error: 'Invalid coverArt', 
+          message: 'coverArt must be a valid image ID (MongoDB ObjectId). Images must be uploaded first using /api/images/upload.' 
+        });
+      }
+
+      // Validate ObjectId format (24 hex characters)
+      if (!mongoose.Types.ObjectId.isValid(coverArt)) {
+        return res.status(400).json({ 
+          error: 'Invalid coverArt', 
+          message: 'coverArt must be a valid MongoDB ObjectId string (24 hex characters). Images must be uploaded first using /api/images/upload.' 
+        });
+      }
+
+      // Extract colors from cover art image
+      let colors;
       try {
-        dominantColor = await extractDominantColor(coverArt);
+        const imageUrl = `/api/images/${coverArt}`;
+        colors = await extractColorsFromImage(undefined, imageUrl);
       } catch (error) {
-        // Continue without dominant color if extraction fails
-        console.error('[PlaylistController] Failed to extract color:', error);
+        // Continue without colors if extraction fails
+        colors = undefined;
       }
     }
 
@@ -242,18 +261,19 @@ export const createPlaylist = async (req: AuthRequest, res: Response, next: Next
       description: description?.trim(),
       ownerOxyUserId: userId,
       ownerUsername: username,
-      coverArt,
+      coverArt: coverArt || undefined,
       visibility: visibility || PlaylistVisibility.PRIVATE,
       isPublic: isPublic || false,
       trackCount: 0,
       totalDuration: 0,
       followers: 0,
-      dominantColor,
+      primaryColor: colors?.primaryColor,
+      secondaryColor: colors?.secondaryColor,
     });
 
     await newPlaylist.save();
 
-    const formattedPlaylist = toApiFormat(newPlaylist);
+    const formattedPlaylist = formatPlaylistWithCoverArt(newPlaylist);
     res.status(201).json(formattedPlaylist);
   } catch (error) {
     next(error);
@@ -299,17 +319,41 @@ export const updatePlaylist = async (req: AuthRequest, res: Response, next: Next
       updateData.description = description?.trim() || undefined;
     }
     if (coverArt !== undefined) {
-      updateData.coverArt = coverArt || undefined;
-      
-      // Extract dominant color if cover art is provided
-      if (coverArt) {
+      // Validate coverArt if provided - must be a valid MongoDB ObjectId string
+      if (coverArt !== null && coverArt !== '') {
+        // Reject blob URLs, http/https URLs, or any other format
+        if (coverArt.startsWith('blob:') || coverArt.startsWith('http://') || coverArt.startsWith('https://') || coverArt.startsWith('/api/')) {
+          return res.status(400).json({ 
+            error: 'Invalid coverArt', 
+            message: 'coverArt must be a valid image ID (MongoDB ObjectId). Images must be uploaded first using /api/images/upload.' 
+          });
+        }
+
+        // Validate ObjectId format (24 hex characters)
+        if (!mongoose.Types.ObjectId.isValid(coverArt)) {
+          return res.status(400).json({ 
+            error: 'Invalid coverArt', 
+            message: 'coverArt must be a valid MongoDB ObjectId string (24 hex characters). Images must be uploaded first using /api/images/upload.' 
+          });
+        }
+
+        updateData.coverArt = coverArt;
+        
+        // Extract colors from cover art image
         try {
-          updateData.dominantColor = await extractDominantColor(coverArt);
+          const imageUrl = `/api/images/${coverArt}`;
+          const colors = await extractColorsFromImage(undefined, imageUrl);
+          if (colors) {
+            updateData.primaryColor = colors.primaryColor;
+            updateData.secondaryColor = colors.secondaryColor;
+          }
         } catch (error) {
-          console.error('[PlaylistController] Failed to extract color:', error);
+          // Continue without colors if extraction fails
         }
       } else {
-        updateData.dominantColor = undefined;
+        updateData.coverArt = undefined;
+        updateData.primaryColor = undefined;
+        updateData.secondaryColor = undefined;
       }
     }
     if (visibility !== undefined) {
@@ -332,7 +376,7 @@ export const updatePlaylist = async (req: AuthRequest, res: Response, next: Next
       return res.status(404).json({ error: 'Playlist not found' });
     }
 
-    const formattedPlaylist = toApiFormat(playlist);
+    const formattedPlaylist = formatPlaylistWithCoverArt(playlist);
     res.json(formattedPlaylist);
   } catch (error) {
     next(error);

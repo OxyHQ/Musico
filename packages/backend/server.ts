@@ -27,6 +27,8 @@ import libraryRoutes from './src/routes/library.routes';
 import audioRoutes from './src/routes/audio.routes';
 import queueRoutes from './src/routes/queue.routes';
 import musicPreferencesRoutes from './src/routes/musicPreferences.routes';
+import copyrightRoutes from './src/routes/copyright.routes';
+import imagesRoutes from './src/routes/images.routes';
 
 // Middleware
 import { rateLimiter, bruteForceProtection } from "./src/middleware/security";
@@ -385,8 +387,10 @@ publicApiRouter.use("/tracks", optionalAuth, tracksRoutes); // GET routes - publ
 publicApiRouter.use("/albums", optionalAuth, albumsRoutes); // GET routes - public viewing
 publicApiRouter.use("/artists", optionalAuth, artistsRoutes); // GET routes - public viewing
 publicApiRouter.use("/playlists", optionalAuth, playlistsRoutes); // GET /playlists/:id is public
+publicApiRouter.use("/images", imagesRoutes); // GET /images/:id is public
 publicApiRouter.use("/search", optionalAuth, searchRoutes);
 publicApiRouter.use("/browse", optionalAuth, browseRoutes); // Browse/explore endpoints - public
+publicApiRouter.use("/copyright", optionalAuth, copyrightRoutes); // Public copyright reporting
 
 // Authenticated API routes (require authentication)
 const authenticatedApiRouter = express.Router();
@@ -394,10 +398,12 @@ authenticatedApiRouter.use("/test", testRoutes);
 authenticatedApiRouter.use("/profile", profileSettingsRoutes);
 authenticatedApiRouter.use("/artists", artistsRoutes); // POST routes (follow/unfollow)
 authenticatedApiRouter.use("/playlists", playlistsRoutes); // POST routes (create)
+authenticatedApiRouter.use("/images", imagesRoutes); // POST /images/upload requires authentication
 authenticatedApiRouter.use("/library", libraryRoutes);
 authenticatedApiRouter.use("/audio", audioRoutes); // Audio streaming requires authentication
 authenticatedApiRouter.use("/queue", queueRoutes); // Queue management requires authentication
 authenticatedApiRouter.use("/music", musicPreferencesRoutes); // Music preferences requires authentication
+authenticatedApiRouter.use("/copyright", copyrightRoutes); // Admin copyright management
 
 // Mount public and authenticated API routers
 app.use("/api", publicApiRouter);
@@ -460,6 +466,26 @@ app.get("/health", async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   }
+});
+
+// --- Error Handler Middleware ---
+// This must be last, after all routes
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  logger.error('[ErrorHandler] Unhandled error:', {
+    message: err.message,
+    stack: err.stack,
+    statusCode: err.statusCode || err.status,
+    path: req.path,
+    method: req.method,
+  });
+
+  const statusCode = err.statusCode || err.status || 500;
+  const message = err.message || 'Internal Server Error';
+
+  res.status(statusCode).json({
+    error: message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
 });
 
 // --- MongoDB Connection ---

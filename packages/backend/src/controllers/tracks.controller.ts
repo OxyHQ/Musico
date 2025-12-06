@@ -4,13 +4,13 @@ import multer from 'multer';
 import { TrackModel } from '../models/Track';
 import { ArtistModel } from '../models/Artist';
 import { AlbumModel } from '../models/Album';
-import { toApiFormat, toApiFormatArray } from '../utils/musicHelpers';
+import { toApiFormat, toApiFormatArray, formatTracksWithCoverArt, formatTrackWithCoverArt } from '../utils/musicHelpers';
 import { isDatabaseConnected } from '../utils/database';
 import { AuthRequest } from '../middleware/auth';
 import { getAuthenticatedUserId } from '../utils/auth';
 import { uploadTrackAudio } from '../services/audioStorageService';
 import { logger } from '../utils/logger';
-import { extractDominantColor } from '../services/colorExtractionService';
+import { extractColorsFromImage } from '../utils/colorHelper';
 
 /**
  * GET /api/tracks
@@ -34,7 +34,7 @@ export const getTracks = async (req: Request, res: Response, next: NextFunction)
       TrackModel.countDocuments({ isAvailable: true }),
     ]);
 
-    const formattedTracks = toApiFormatArray(tracks);
+    const formattedTracks = await formatTracksWithCoverArt(tracks);
 
     res.json({
       tracks: formattedTracks,
@@ -69,7 +69,7 @@ export const getTrackById = async (req: Request, res: Response, next: NextFuncti
       return res.status(404).json({ error: 'Track not found' });
     }
 
-    const formattedTrack = toApiFormat(track);
+    const formattedTrack = await formatTrackWithCoverArt(track);
     res.json(formattedTrack);
   } catch (error) {
     next(error);
@@ -120,7 +120,7 @@ export const searchTracks = async (req: Request, res: Response, next: NextFuncti
       }),
     ]);
 
-    const formattedTracks = toApiFormatArray(tracks);
+    const formattedTracks = await formatTracksWithCoverArt(tracks);
 
     res.json({
       tracks: formattedTracks,
@@ -170,10 +170,12 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
   // Handle file upload
   audioUpload(req, res, async (err) => {
     if (err) {
+      logger.error('[TracksController] Multer upload error:', err);
       return res.status(400).json({ error: 'Upload error', message: err.message });
     }
 
     try {
+      logger.debug('[TracksController] Starting track upload process...');
       if (!isDatabaseConnected()) {
         return res.status(503).json({ error: 'Database not available' });
       }
@@ -205,6 +207,14 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
         return res.status(403).json({ 
           error: 'Forbidden', 
           message: 'You do not own this artist profile' 
+        });
+      }
+
+      // Check if uploads are disabled due to strikes
+      if (artist.uploadsDisabled) {
+        return res.status(403).json({ 
+          error: 'Uploads disabled', 
+          message: 'Uploads are disabled due to copyright strikes. Please contact support for more information.' 
         });
       }
 
@@ -249,13 +259,32 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
         });
       }
 
-      // Extract dominant color from cover art if provided (skip blob URLs)
-      let dominantColor: string | undefined;
-      if (coverArt && !coverArt.startsWith('blob:')) {
+      // Validate coverArt if provided - must be a valid MongoDB ObjectId string
+      if (coverArt) {
+        // Reject blob URLs, http/https URLs, or any other format
+        if (coverArt.startsWith('blob:') || coverArt.startsWith('http://') || coverArt.startsWith('https://') || coverArt.startsWith('/api/')) {
+          return res.status(400).json({ 
+            error: 'Invalid coverArt', 
+            message: 'coverArt must be a valid image ID (MongoDB ObjectId). Images must be uploaded first using /api/images/upload.' 
+          });
+        }
+
+        // Validate ObjectId format (24 hex characters)
+        if (!mongoose.Types.ObjectId.isValid(coverArt)) {
+          return res.status(400).json({ 
+            error: 'Invalid coverArt', 
+            message: 'coverArt must be a valid MongoDB ObjectId string (24 hex characters). Images must be uploaded first using /api/images/upload.' 
+          });
+        }
+
+        // Extract colors from cover art image
         try {
-          dominantColor = await extractDominantColor(coverArt);
+          const imageUrl = `/api/images/${coverArt}`;
+          await extractColorsFromImage(undefined, imageUrl);
+          // Colors extracted but not stored in track model yet - can be added later if needed
         } catch (error) {
-          // Continue without dominant color if extraction fails
+          // Continue without colors if extraction fails
+          logger.debug('[TracksController] Failed to extract colors from cover art:', error);
         }
       }
 
@@ -288,16 +317,21 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
 
       // Upload audio file to S3 first
       const trackForUpload = toApiFormat(track);
+      logger.debug('[TracksController] Starting S3 upload...');
       await uploadTrackAudio(trackForUpload, file.buffer);
+      logger.debug('[TracksController] S3 upload completed, saving track to database...');
 
       // Save track after successful upload
-      await track.save();
+      logger.debug('[TracksController] Attempting to save track to database', { trackId: trackId.toString() });
+      const savedTrack = await track.save();
+      logger.debug('[TracksController] Track saved to database successfully', { trackId: savedTrack._id.toString() });
 
       // Update artist stats
       await ArtistModel.updateOne(
         { _id: artistId },
         { $inc: { 'stats.tracks': 1 } }
       );
+      logger.debug('[TracksController] Artist stats updated');
 
       // Update album stats if track is part of album
       if (albumId) {
@@ -307,13 +341,36 @@ export const uploadTrack = async (req: AuthRequest, res: Response, next: NextFun
             $inc: { totalTracks: 1, totalDuration: durationNum }
           }
         );
+        logger.debug('[TracksController] Album stats updated');
       }
 
-      const finalTrack = toApiFormat(track);
-      res.status(201).json(finalTrack);
+      logger.debug('[TracksController] Formatting response...');
+      const finalTrack = await formatTrackWithCoverArt(track);
+      logger.debug('[TracksController] Sending response', { trackId: finalTrack?.id });
+      
+      // Ensure response is sent
+      if (!res.headersSent) {
+        res.status(201).json(finalTrack);
+      } else {
+        logger.warn('[TracksController] Response already sent, cannot send track data');
+      }
     } catch (error: any) {
-      logger.error('[TracksController] Error uploading track:', error);
-      next(error);
+      logger.error('[TracksController] Error uploading track:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      });
+      
+      // Ensure error response is sent if not already sent
+      if (!res.headersSent) {
+        res.status(error.statusCode || error.status || 500).json({
+          error: error.message || 'Internal Server Error',
+          ...(process.env.NODE_ENV === 'development' && { details: error.stack }),
+        });
+      } else {
+        // If response already sent, log error but can't send response
+        logger.error('[TracksController] Error occurred but response already sent');
+      }
     }
   });
 };

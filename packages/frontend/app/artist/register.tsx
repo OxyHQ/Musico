@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     StyleSheet,
     View,
@@ -42,6 +42,14 @@ const ArtistRegisterScreen: React.FC = () => {
     const [genre, setGenre] = useState('');
     const [isRegistering, setIsRegistering] = useState(false);
     const [errors, setErrors] = useState<FormErrors>({});
+
+    // Redirect if not authenticated
+    useEffect(() => {
+        if (!isAuthenticated) {
+            toast.error('You must sign in to create an artist profile');
+            router.replace('/');
+        }
+    }, [isAuthenticated, router]);
 
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
@@ -129,6 +137,14 @@ const ArtistRegisterScreen: React.FC = () => {
                     <View style={{ width: 24 }} />
                 </View>
 
+                {!isAuthenticated ? (
+                    <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background }]}>
+                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                        <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                            Redirecting...
+                        </Text>
+                    </View>
+                ) : (
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={[
@@ -257,6 +273,7 @@ const ArtistRegisterScreen: React.FC = () => {
                         )}
                     </Pressable>
                 </ScrollView>
+                )}
             </KeyboardAvoidingView>
         </>
     );
@@ -352,6 +369,15 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 12,
+    },
+    loadingText: {
+        fontSize: 14,
     },
 });
 

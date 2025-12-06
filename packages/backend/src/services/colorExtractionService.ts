@@ -6,13 +6,14 @@ import { logger } from '../utils/logger';
 import { validateUrlSecurity } from '../utils/urlSecurity';
 
 /**
- * Service to extract dominant color from images
- * Uses sharp to analyze images and extract the most prominent color
+ * Service to extract dominant colors from images
+ * Uses sharp to analyze images and extract the most prominent colors
  */
 
 const TIMEOUT_MS = 10000; // 10 seconds
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 const FALLBACK_COLOR = '#808080'; // Gray fallback color
+const MIN_COLOR_DIFFERENCE = 50; // Minimum difference in brightness or color distance for secondary color
 
 /**
  * Convert RGB values to hex color string
@@ -23,6 +24,20 @@ function rgbToHex(r: number, g: number, b: number): string {
     return hex.length === 1 ? '0' + hex : hex;
   };
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/**
+ * Calculate color distance between two RGB colors (Euclidean distance)
+ */
+function colorDistance(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
+  return Math.sqrt(Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2));
+}
+
+/**
+ * Calculate brightness of an RGB color
+ */
+function calculateBrightness(r: number, g: number, b: number): number {
+  return r * 0.299 + g * 0.587 + b * 0.114;
 }
 
 /**
@@ -103,10 +118,10 @@ async function downloadImage(url: string): Promise<Buffer> {
 }
 
 /**
- * Extract dominant color from image buffer
+ * Extract predominant colors (primary and secondary) from image buffer
  * Uses sharp to resize and get color statistics
  */
-async function extractColorFromBuffer(imageBuffer: Buffer): Promise<string> {
+async function extractPredominantColorsFromBufferInternal(imageBuffer: Buffer): Promise<{ primary: string; secondary?: string }> {
   try {
     // Resize image to smaller size for faster processing (max 100x100)
     // This is sufficient for color extraction and much faster
@@ -122,7 +137,7 @@ async function extractColorFromBuffer(imageBuffer: Buffer): Promise<string> {
     const { width, height, channels } = info;
 
     // Calculate color frequencies
-    const colorMap = new Map<string, number>();
+    const colorMap = new Map<string, { count: number; r: number; g: number; b: number }>();
     
     for (let i = 0; i < data.length; i += channels) {
       const r = data[i];
@@ -135,32 +150,82 @@ async function extractColorFromBuffer(imageBuffer: Buffer): Promise<string> {
       const roundedB = Math.round(b / 8) * 8;
       
       const colorKey = `${roundedR},${roundedG},${roundedB}`;
-      colorMap.set(colorKey, (colorMap.get(colorKey) || 0) + 1);
+      const existing = colorMap.get(colorKey);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        colorMap.set(colorKey, { count: 1, r: roundedR, g: roundedG, b: roundedB });
+      }
     }
 
-    // Find most frequent color (excluding very dark/light colors for better results)
-    let maxCount = 0;
-    let dominantColor = { r: 128, g: 128, b: 128 }; // Default gray
-
-    for (const [colorKey, count] of colorMap.entries()) {
-      const [r, g, b] = colorKey.split(',').map(Number);
+    // Sort colors by frequency, excluding very dark/light colors
+    const validColors: Array<{ r: number; g: number; b: number; count: number; brightness: number }> = [];
+    
+    for (const [_, colorData] of colorMap.entries()) {
+      const brightness = calculateBrightness(colorData.r, colorData.g, colorData.b);
       
       // Skip very dark colors (likely shadows/borders)
-      const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
       if (brightness < 30) continue;
       
       // Skip very light colors (likely backgrounds)
       if (brightness > 240) continue;
 
-      if (count > maxCount) {
-        maxCount = count;
-        dominantColor = { r, g, b };
+      validColors.push({
+        r: colorData.r,
+        g: colorData.g,
+        b: colorData.b,
+        count: colorData.count,
+        brightness,
+      });
+    }
+
+    // Sort by frequency (most frequent first)
+    validColors.sort((a, b) => b.count - a.count);
+
+    // Default fallback colors
+    const defaultPrimary = { r: 128, g: 128, b: 128 };
+    const defaultSecondary = { r: 100, g: 100, b: 100 };
+
+    if (validColors.length === 0) {
+      return {
+        primary: rgbToHex(defaultPrimary.r, defaultPrimary.g, defaultPrimary.b),
+        secondary: rgbToHex(defaultSecondary.r, defaultSecondary.g, defaultSecondary.b),
+      };
+    }
+
+    // Primary color is the most frequent
+    const primary = validColors[0];
+
+    // Find secondary color: most frequent color that's sufficiently different from primary
+    let secondary: typeof validColors[0] | undefined;
+    
+    for (let i = 1; i < validColors.length; i++) {
+      const candidate = validColors[i];
+      
+      // Check if colors are sufficiently different
+      const brightnessDiff = Math.abs(candidate.brightness - primary.brightness);
+      const colorDist = colorDistance(
+        candidate.r, candidate.g, candidate.b,
+        primary.r, primary.g, primary.b
+      );
+      
+      if (brightnessDiff >= MIN_COLOR_DIFFERENCE || colorDist >= MIN_COLOR_DIFFERENCE) {
+        secondary = candidate;
+        break;
       }
     }
 
-    return rgbToHex(dominantColor.r, dominantColor.g, dominantColor.b);
+    // If no sufficiently different color found, use the second most frequent
+    if (!secondary && validColors.length > 1) {
+      secondary = validColors[1];
+    }
+
+    return {
+      primary: rgbToHex(primary.r, primary.g, primary.b),
+      secondary: secondary ? rgbToHex(secondary.r, secondary.g, secondary.b) : undefined,
+    };
   } catch (error) {
-    logger.error('[ColorExtractionService] Error extracting color from buffer:', {
+    logger.error('[ColorExtractionService] Error extracting colors from buffer:', {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
@@ -168,52 +233,93 @@ async function extractColorFromBuffer(imageBuffer: Buffer): Promise<string> {
 }
 
 /**
- * Extract dominant color from image URL
- * Downloads the image and extracts its dominant color
+ * Extract dominant color from image buffer (backward compatibility)
+ * Uses sharp to resize and get color statistics
+ */
+async function extractColorFromBuffer(imageBuffer: Buffer): Promise<string> {
+  const colors = await extractPredominantColorsFromBufferInternal(imageBuffer);
+  return colors.primary;
+}
+
+/**
+ * Extract predominant colors (primary and secondary) from image URL
+ * Downloads the image and extracts its predominant colors
  * 
  * @param imageUrl - URL to the image
- * @returns Hex color string (e.g., "#FF5733") or fallback color on error
+ * @returns Object with primary and optional secondary color, or fallback colors on error
  */
-export async function extractDominantColor(imageUrl: string | null | undefined): Promise<string> {
+export async function extractPredominantColors(imageUrl: string | null | undefined): Promise<{ primary: string; secondary?: string }> {
   if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim().length === 0) {
     logger.debug('[ColorExtractionService] No image URL provided, using fallback');
-    return FALLBACK_COLOR;
+    return {
+      primary: FALLBACK_COLOR,
+      secondary: undefined,
+    };
   }
 
   try {
     // Download image
     const imageBuffer = await downloadImage(imageUrl);
     
-    // Extract color
-    const color = await extractColorFromBuffer(imageBuffer);
+    // Extract colors
+    const colors = await extractPredominantColorsFromBufferInternal(imageBuffer);
     
-    logger.debug('[ColorExtractionService] Extracted color:', { imageUrl, color });
-    return color;
+    logger.debug('[ColorExtractionService] Extracted colors:', { imageUrl, colors });
+    return colors;
   } catch (error) {
-    logger.warn('[ColorExtractionService] Failed to extract color, using fallback:', {
+    logger.warn('[ColorExtractionService] Failed to extract colors, using fallback:', {
       imageUrl,
       error: error instanceof Error ? error.message : String(error),
     });
-    return FALLBACK_COLOR;
+    return {
+      primary: FALLBACK_COLOR,
+      secondary: undefined,
+    };
   }
 }
 
 /**
- * Extract dominant color from image buffer (useful for direct buffer processing)
+ * Extract predominant colors from image buffer (exported function)
+ * 
+ * @param imageBuffer - Image buffer
+ * @returns Object with primary and optional secondary color, or fallback colors on error
+ */
+export async function extractPredominantColorsFromBuffer(imageBuffer: Buffer): Promise<{ primary: string; secondary?: string }> {
+  try {
+    const colors = await extractPredominantColorsFromBufferInternal(imageBuffer);
+    logger.debug('[ColorExtractionService] Extracted colors from buffer:', { colors });
+    return colors;
+  } catch (error) {
+    logger.warn('[ColorExtractionService] Failed to extract colors from buffer, using fallback:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      primary: FALLBACK_COLOR,
+      secondary: undefined,
+    };
+  }
+}
+
+/**
+ * Extract dominant color from image URL (backward compatibility)
+ * Downloads the image and extracts its dominant color
+ * 
+ * @param imageUrl - URL to the image
+ * @returns Hex color string (e.g., "#FF5733") or fallback color on error
+ */
+export async function extractDominantColor(imageUrl: string | null | undefined): Promise<string> {
+  const colors = await extractPredominantColors(imageUrl);
+  return colors.primary;
+}
+
+/**
+ * Extract dominant color from image buffer (backward compatibility)
  * 
  * @param imageBuffer - Image buffer
  * @returns Hex color string (e.g., "#FF5733") or fallback color on error
  */
 export async function extractDominantColorFromBuffer(imageBuffer: Buffer): Promise<string> {
-  try {
-    const color = await extractColorFromBuffer(imageBuffer);
-    logger.debug('[ColorExtractionService] Extracted color from buffer:', { color });
-    return color;
-  } catch (error) {
-    logger.warn('[ColorExtractionService] Failed to extract color from buffer, using fallback:', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return FALLBACK_COLOR;
-  }
+  const colors = await extractPredominantColorsFromBuffer(imageBuffer);
+  return colors.primary;
 }
 

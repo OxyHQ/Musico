@@ -3,12 +3,12 @@ import mongoose from 'mongoose';
 import { AlbumModel } from '../models/Album';
 import { TrackModel } from '../models/Track';
 import { ArtistModel } from '../models/Artist';
-import { toApiFormat, toApiFormatArray } from '../utils/musicHelpers';
+import { toApiFormat, toApiFormatArray, formatTracksWithCoverArt, formatAlbumWithCoverArt, formatAlbumsWithCoverArt } from '../utils/musicHelpers';
 import { isDatabaseConnected } from '../utils/database';
 import { AuthRequest } from '../middleware/auth';
 import { getAuthenticatedUserId } from '../utils/auth';
 import { CreateAlbumRequest } from '@musico/shared-types';
-import { extractDominantColor } from '../services/colorExtractionService';
+import { extractColorsFromImage } from '../utils/colorHelper';
 import { logger } from '../utils/logger';
 
 /**
@@ -33,7 +33,7 @@ export const getAlbums = async (req: Request, res: Response, next: NextFunction)
       AlbumModel.countDocuments(),
     ]);
 
-    const formattedAlbums = toApiFormatArray(albums);
+    const formattedAlbums = formatAlbumsWithCoverArt(albums);
 
     res.json({
       albums: formattedAlbums,
@@ -68,7 +68,7 @@ export const getAlbumById = async (req: Request, res: Response, next: NextFuncti
       return res.status(404).json({ error: 'Album not found' });
     }
 
-    const formattedAlbum = toApiFormat(album);
+    const formattedAlbum = formatAlbumWithCoverArt(album);
     res.json(formattedAlbum);
   } catch (error) {
     next(error);
@@ -103,7 +103,7 @@ export const getAlbumTracks = async (req: Request, res: Response, next: NextFunc
       .sort({ discNumber: 1, trackNumber: 1 })
       .lean();
 
-    const formattedTracks = toApiFormatArray(tracks);
+    const formattedTracks = await formatTracksWithCoverArt(tracks);
 
     res.json({
       tracks: formattedTracks,
@@ -147,13 +147,41 @@ export const createAlbum = async (req: AuthRequest, res: Response, next: NextFun
       });
     }
 
-    // Extract dominant color from cover art
-    let dominantColor: string | undefined;
-    try {
-      dominantColor = await extractDominantColor(data.coverArt);
-    } catch (error) {
-      // Continue without dominant color if extraction fails
+    // Check if uploads are disabled due to strikes
+    if (artist.uploadsDisabled) {
+      return res.status(403).json({ 
+        error: 'Uploads disabled', 
+        message: 'Uploads are disabled due to copyright strikes. Please contact support for more information.' 
+      });
     }
+
+    // Validate coverArt - must be a valid MongoDB ObjectId string
+    if (!data.coverArt) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        message: 'coverArt is required' 
+      });
+    }
+
+    // Reject blob URLs, http/https URLs, or any other format
+    if (data.coverArt.startsWith('blob:') || data.coverArt.startsWith('http://') || data.coverArt.startsWith('https://') || data.coverArt.startsWith('/api/')) {
+      return res.status(400).json({ 
+        error: 'Invalid coverArt', 
+        message: 'coverArt must be a valid image ID (MongoDB ObjectId). Images must be uploaded first using /api/images/upload.' 
+      });
+    }
+
+    // Validate ObjectId format (24 hex characters)
+    if (!mongoose.Types.ObjectId.isValid(data.coverArt)) {
+      return res.status(400).json({ 
+        error: 'Invalid coverArt', 
+        message: 'coverArt must be a valid MongoDB ObjectId string (24 hex characters). Images must be uploaded first using /api/images/upload.' 
+      });
+    }
+
+    // Extract colors from cover art image
+    const imageUrl = `/api/images/${data.coverArt}`;
+    const colors = await extractColorsFromImage(undefined, imageUrl);
 
     // Create album
     const album = new AlbumModel({
@@ -169,7 +197,8 @@ export const createAlbum = async (req: AuthRequest, res: Response, next: NextFun
       isExplicit: data.isExplicit || false,
       totalTracks: 0,
       totalDuration: 0,
-      dominantColor,
+      primaryColor: colors?.primaryColor,
+      secondaryColor: colors?.secondaryColor,
       popularity: 0,
     });
 
@@ -181,7 +210,7 @@ export const createAlbum = async (req: AuthRequest, res: Response, next: NextFun
       { $inc: { 'stats.albums': 1 } }
     );
 
-    const formattedAlbum = toApiFormat(album);
+    const formattedAlbum = formatAlbumWithCoverArt(album);
     res.status(201).json(formattedAlbum);
   } catch (error: any) {
     logger.error('[AlbumsController] Error creating album:', error);

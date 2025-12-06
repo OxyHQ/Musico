@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   streamAudio,
   getAudioInfo,
+  getAudioUrl,
 } from '../controllers/audio.controller';
 
 const router = Router();
@@ -15,6 +16,12 @@ router.get('/:trackId', streamAudio);
 // Note: Authentication is required (handled by authenticatedApiRouter in server.ts)
 // Uses MongoDB ObjectId: /api/audio/:trackId/info
 router.get('/:trackId/info', getAudioInfo);
+
+// Get authenticated audio URL (pre-signed S3 URL)
+// Note: Authentication is required (handled by authenticatedApiRouter in server.ts)
+// Uses MongoDB ObjectId: /api/audio/:trackId/url
+// Returns a pre-signed URL that can be used directly by audio players without authentication headers
+router.get('/:trackId/url', getAudioUrl);
 
 export default router;
 

@@ -39,6 +39,11 @@ const TrackSchema = new Schema<ITrack>({
   popularity: { type: Number, default: 0, min: 0, max: 100 },
   playCount: { type: Number, default: 0 },
   isAvailable: { type: Boolean, default: true, index: true },
+  copyrightRemoved: { type: Boolean, default: false, index: true },
+  removedAt: { type: Date },
+  removedReason: { type: String },
+  removedBy: { type: String }, // Oxy user ID who reported/removed
+  copyrightReportId: { type: String },
 }, {
   timestamps: true,
 });

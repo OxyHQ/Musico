@@ -15,7 +15,7 @@ export interface Album extends Timestamps {
   artistId: string;
   artistName: string;
   releaseDate: string; // ISO date string
-  coverArt: string; // URL to album cover
+  coverArt: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first // URL to album cover (stored as MongoDB ObjectId in DB, converted to /api/images/:id URL in API responses)
   genre?: string[];
   totalTracks: number;
   totalDuration: number; // total duration in seconds
@@ -25,7 +25,8 @@ export interface Album extends Timestamps {
   upc?: string; // Universal Product Code
   popularity?: number; // 0-100
   isExplicit: boolean;
-  dominantColor?: string; // Hex color extracted from cover art (e.g., "#FF5733")
+  primaryColor?: string; // Primary hex color extracted from cover art (e.g., "#FF5733")
+  secondaryColor?: string; // Secondary hex color extracted from cover art (e.g., "#33FF57")
 }
 
 /**
@@ -54,7 +55,7 @@ export interface CreateAlbumRequest {
   title: string;
   artistId: string;
   releaseDate: string;
-  coverArt: string;
+  coverArt: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   genre?: string[];
   type?: 'album' | 'single' | 'ep' | 'compilation';
   label?: string;

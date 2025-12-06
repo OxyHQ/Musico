@@ -132,6 +132,60 @@ const ArtistDashboardScreen: React.FC = () => {
           }
           showsVerticalScrollIndicator={false}
         >
+          {/* Strike Warning Banner */}
+          {dashboard.strikeCount > 0 && (
+            <View style={[styles.warningBanner, { 
+              backgroundColor: dashboard.strikeCount >= 3 
+                ? theme.colors.error + '20' 
+                : theme.colors.warning + '20',
+              borderColor: dashboard.strikeCount >= 3 
+                ? theme.colors.error 
+                : theme.colors.warning,
+            }]}>
+              <MaterialCommunityIcons
+                name={dashboard.strikeCount >= 3 ? "alert-circle" : "alert"}
+                size={24}
+                color={dashboard.strikeCount >= 3 ? theme.colors.error : theme.colors.warning}
+              />
+              <View style={styles.warningContent}>
+                <Text style={[styles.warningTitle, { 
+                  color: dashboard.strikeCount >= 3 ? theme.colors.error : theme.colors.warning 
+                }]}>
+                  {dashboard.strikeCount >= 3 
+                    ? 'Uploads Disabled' 
+                    : `Warning: ${dashboard.strikeCount} Copyright Strike${dashboard.strikeCount > 1 ? 's' : ''}`}
+                </Text>
+                <Text style={[styles.warningText, { color: theme.colors.textSecondary }]}>
+                  {dashboard.strikeCount >= 3
+                    ? 'Your uploads have been disabled due to multiple copyright violations. Please contact support for assistance.'
+                    : `You have ${dashboard.strikeCount} copyright strike${dashboard.strikeCount > 1 ? 's' : ''}. ${dashboard.strikeCount === 2 ? 'One more strike will disable your uploads.' : 'Please ensure all content is original or properly licensed.'}`}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Upload Disabled Banner */}
+          {dashboard.uploadsDisabled && (
+            <View style={[styles.errorBanner, { 
+              backgroundColor: theme.colors.error + '20',
+              borderColor: theme.colors.error,
+            }]}>
+              <MaterialCommunityIcons
+                name="upload-off"
+                size={24}
+                color={theme.colors.error}
+              />
+              <View style={styles.warningContent}>
+                <Text style={[styles.warningTitle, { color: theme.colors.error }]}>
+                  Uploads Disabled
+                </Text>
+                <Text style={[styles.warningText, { color: theme.colors.textSecondary }]}>
+                  You cannot upload new tracks or albums due to copyright strikes. Please contact support to resolve this issue.
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Stats Cards */}
           <View style={styles.statsGrid}>
             <View style={[styles.statCard, { backgroundColor: theme.colors.backgroundSecondary }]}>
@@ -199,20 +253,70 @@ const ArtistDashboardScreen: React.FC = () => {
             <View style={styles.actionsGrid}>
               <Pressable
                 onPress={() => router.push('/artist/upload?tab=song')}
-                style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+                disabled={dashboard.uploadsDisabled}
+                style={[
+                  styles.actionButton, 
+                  { 
+                    backgroundColor: dashboard.uploadsDisabled 
+                      ? theme.colors.textSecondary 
+                      : theme.colors.primary,
+                    opacity: dashboard.uploadsDisabled ? 0.6 : 1,
+                  }
+                ]}
               >
                 <MaterialCommunityIcons name="upload" size={24} color="#FFFFFF" />
                 <Text style={styles.actionButtonText}>Upload Song</Text>
               </Pressable>
               <Pressable
                 onPress={() => router.push('/artist/upload?tab=album')}
-                style={[styles.actionButton, { backgroundColor: theme.colors.primary }]}
+                disabled={dashboard.uploadsDisabled}
+                style={[
+                  styles.actionButton, 
+                  { 
+                    backgroundColor: dashboard.uploadsDisabled 
+                      ? theme.colors.textSecondary 
+                      : theme.colors.primary,
+                    opacity: dashboard.uploadsDisabled ? 0.6 : 1,
+                  }
+                ]}
               >
                 <MaterialCommunityIcons name="album" size={24} color="#FFFFFF" />
                 <Text style={styles.actionButtonText}>Create Album</Text>
               </Pressable>
             </View>
           </View>
+
+          {/* Copyright Removed Tracks */}
+          {dashboard.copyrightRemovedTracks.length > 0 && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                Copyright Removed Tracks
+              </Text>
+              <View style={[styles.removedTracksContainer, { backgroundColor: theme.colors.backgroundSecondary }]}>
+                {dashboard.copyrightRemovedTracks.map((track) => (
+                  <View
+                    key={track.id}
+                    style={[styles.removedTrackItem, { borderBottomColor: theme.colors.border }]}
+                  >
+                    <MaterialCommunityIcons
+                      name="copyright"
+                      size={20}
+                      color={theme.colors.error}
+                    />
+                    <View style={styles.removedTrackInfo}>
+                      <Text style={[styles.removedTrackTitle, { color: theme.colors.text }]}>
+                        {track.title}
+                      </Text>
+                      <Text style={[styles.removedTrackMeta, { color: theme.colors.textSecondary }]}>
+                        Removed: {new Date(track.removedAt).toLocaleDateString()}
+                        {track.removedReason && ` • ${track.removedReason}`}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Recent Tracks */}
           {dashboard.recentTracks.length > 0 && (
@@ -441,6 +545,56 @@ const styles = StyleSheet.create({
   },
   albumMeta: {
     fontSize: 13,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  warningContent: {
+    flex: 1,
+    gap: 4,
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  warningText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  removedTracksContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  removedTrackItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  removedTrackInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  removedTrackTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  removedTrackMeta: {
+    fontSize: 12,
   },
 });
 

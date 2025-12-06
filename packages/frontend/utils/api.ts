@@ -27,8 +27,8 @@ export const api = {
     return { data: response.data };
   },
 
-  async post<T = any>(endpoint: string, body?: any): Promise<{ data: T }> {
-    const response = await authenticatedClient.post(endpoint, body);
+  async post<T = any>(endpoint: string, body?: any, config?: any): Promise<{ data: T }> {
+    const response = await authenticatedClient.post(endpoint, body, config);
     return { data: response.data };
   },
 

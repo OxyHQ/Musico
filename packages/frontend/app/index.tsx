@@ -398,7 +398,7 @@ const HomeScreen: React.FC = () => {
                     : item.data.name;
                 const id = item.data.id;
 
-                const dominantColor = (item.data as any).dominantColor;
+                const primaryColor = (item.data as any).primaryColor;
 
                 return (
                   <Pressable
@@ -415,7 +415,7 @@ const HomeScreen: React.FC = () => {
                         // Could navigate to artist page in future: router.push(`/artist/${id}`);
                       }
                     }}
-                    onHoverIn={() => handleHoverIn(dominantColor)}
+                    onHoverIn={() => handleHoverIn(primaryColor)}
                     onHoverOut={handleHoverOut}
                   >
                     <View
@@ -471,7 +471,7 @@ const HomeScreen: React.FC = () => {
                       onPlayPress={() => {
                         router.push(`/playlist/${playlist.id}` as any);
                       }}
-                      onHoverIn={() => handleHoverIn((playlist as any).dominantColor)}
+                      onHoverIn={() => handleHoverIn((playlist as any).primaryColor)}
                       onHoverOut={handleHoverOut}
                     />
                   </View>
@@ -500,7 +500,7 @@ const HomeScreen: React.FC = () => {
                           console.error('[HomeScreen] Error playing album:', error);
                         }
                       }}
-                      onHoverIn={() => handleHoverIn((album as any).dominantColor)}
+                      onHoverIn={() => handleHoverIn((album as any).primaryColor)}
                       onHoverOut={handleHoverOut}
                     />
                   </View>
@@ -531,7 +531,7 @@ const HomeScreen: React.FC = () => {
                       onPlayPress={() => {
                         router.push(`/playlist/${playlist.id}` as any);
                       }}
-                      onHoverIn={() => handleHoverIn((playlist as any).dominantColor)}
+                      onHoverIn={() => handleHoverIn((playlist as any).primaryColor)}
                       onHoverOut={handleHoverOut}
                     />
                   </View>
@@ -560,7 +560,7 @@ const HomeScreen: React.FC = () => {
                           console.error('[HomeScreen] Error playing album:', error);
                         }
                       }}
-                      onHoverIn={() => handleHoverIn((album as any).dominantColor)}
+                      onHoverIn={() => handleHoverIn((album as any).primaryColor)}
                       onHoverOut={handleHoverOut}
                     />
                   </View>

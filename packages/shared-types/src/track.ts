@@ -45,12 +45,17 @@ export interface Track extends Timestamps {
   trackNumber?: number; // position in album
   discNumber?: number; // disc number for multi-disc albums
   audioSource: AudioSource;
-  coverArt?: string; // URL to cover art image
+  coverArt?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first. In API responses, converted to /api/images/:id URL
   metadata?: TrackMetadata;
   isExplicit: boolean;
   popularity?: number; // 0-100
   playCount?: number;
   isAvailable: boolean; // whether track is available for playback
+  copyrightRemoved?: boolean;
+  removedAt?: string;
+  removedReason?: string;
+  removedBy?: string; // Oxy user ID who reported/removed
+  copyrightReportId?: string;
 }
 
 /**
@@ -71,7 +76,7 @@ export interface CreateTrackRequest {
   albumId?: string;
   duration: number;
   audioSource: AudioSource;
-  coverArt?: string;
+  coverArt?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   metadata?: TrackMetadata;
   isExplicit?: boolean;
 }
@@ -84,7 +89,7 @@ export interface UpdateTrackRequest {
   albumId?: string;
   trackNumber?: number;
   discNumber?: number;
-  coverArt?: string;
+  coverArt?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   metadata?: Partial<TrackMetadata>;
   isAvailable?: boolean;
 }
@@ -96,7 +101,7 @@ export interface UploadTrackRequest {
   title: string;
   artistId: string;
   albumId?: string;
-  coverArt?: string;
+  coverArt?: string; // MongoDB ObjectId string (24 hex characters) - image must be uploaded via /api/images/upload first
   genre?: string[];
   isExplicit?: boolean;
   // Audio file will be sent as multipart/form-data

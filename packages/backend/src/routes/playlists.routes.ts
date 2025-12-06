@@ -11,6 +11,7 @@ import {
   reorderPlaylistTracks,
 } from '../controllers/playlists.controller';
 import { requireAuth } from '../middleware/auth';
+import { singleCoverArtUpload } from '../utils/imageUpload';
 
 const router = Router();
 
@@ -21,8 +22,8 @@ router.get('/:id/tracks', getPlaylistTracks);
 // Authenticated routes
 router.use(requireAuth);
 router.get('/', getUserPlaylists);
-router.post('/', createPlaylist);
-router.put('/:id', updatePlaylist);
+router.post('/', singleCoverArtUpload, createPlaylist);
+router.put('/:id', singleCoverArtUpload, updatePlaylist);
 router.delete('/:id', deletePlaylist);
 router.post('/:id/tracks', addTracksToPlaylist);
 router.delete('/:id/tracks', removeTracksFromPlaylist);

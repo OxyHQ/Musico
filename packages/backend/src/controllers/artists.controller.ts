@@ -3,12 +3,12 @@ import mongoose from 'mongoose';
 import { ArtistModel } from '../models/Artist';
 import { AlbumModel } from '../models/Album';
 import { TrackModel } from '../models/Track';
-import { toApiFormat, toApiFormatArray } from '../utils/musicHelpers';
+import { toApiFormat, toApiFormatArray, formatTracksWithCoverArt, formatArtistWithImage, formatArtistsWithImage } from '../utils/musicHelpers';
 import { isDatabaseConnected } from '../utils/database';
 import { AuthRequest } from '../middleware/auth';
 import { getAuthenticatedUserId } from '../utils/auth';
 import { CreateArtistRequest, ArtistInsights, ArtistDashboard } from '@musico/shared-types';
-import { extractDominantColor } from '../services/colorExtractionService';
+import { extractColorsFromImage } from '../utils/colorHelper';
 
 /**
  * GET /api/artists
@@ -32,7 +32,7 @@ export const getArtists = async (req: Request, res: Response, next: NextFunction
       ArtistModel.countDocuments(),
     ]);
 
-    const formattedArtists = toApiFormatArray(artists);
+    const formattedArtists = formatArtistsWithImage(artists);
 
     res.json({
       artists: formattedArtists,
@@ -67,7 +67,7 @@ export const getArtistById = async (req: Request, res: Response, next: NextFunct
       return res.status(404).json({ error: 'Artist not found' });
     }
 
-    const formattedArtist = toApiFormat(artist);
+    const formattedArtist = formatArtistWithImage(artist);
     res.json(formattedArtist);
   } catch (error) {
     next(error);
@@ -148,7 +148,7 @@ export const getArtistTracks = async (req: Request, res: Response, next: NextFun
       TrackModel.countDocuments({ artistId: id, isAvailable: true }),
     ]);
 
-    const formattedTracks = toApiFormatArray(tracks);
+    const formattedTracks = await formatTracksWithCoverArt(tracks);
 
     res.json({
       tracks: formattedTracks,
@@ -241,13 +241,32 @@ export const registerAsArtist = async (req: AuthRequest, res: Response, next: Ne
       });
     }
 
-    // Extract dominant color from image if provided
-    let dominantColor: string | undefined;
-    if (data.image) {
+    // Validate image if provided - must be a valid MongoDB ObjectId string
+    let colors;
+    if (data.image !== undefined && data.image !== null && data.image !== '') {
+      // Reject blob URLs, http/https URLs, or any other format
+      if (data.image.startsWith('blob:') || data.image.startsWith('http://') || data.image.startsWith('https://') || data.image.startsWith('/api/')) {
+        return res.status(400).json({ 
+          error: 'Invalid image', 
+          message: 'image must be a valid image ID (MongoDB ObjectId). Images must be uploaded first using /api/images/upload.' 
+        });
+      }
+
+      // Validate ObjectId format (24 hex characters)
+      if (!mongoose.Types.ObjectId.isValid(data.image)) {
+        return res.status(400).json({ 
+          error: 'Invalid image', 
+          message: 'image must be a valid MongoDB ObjectId string (24 hex characters). Images must be uploaded first using /api/images/upload.' 
+        });
+      }
+
+      // Extract colors from image
       try {
-        dominantColor = await extractDominantColor(data.image);
+        const imageUrl = `/api/images/${data.image}`;
+        colors = await extractColorsFromImage(undefined, imageUrl);
       } catch (error) {
-        // Continue without dominant color if extraction fails
+        // Continue without colors if extraction fails
+        colors = undefined;
       }
     }
 
@@ -259,7 +278,8 @@ export const registerAsArtist = async (req: AuthRequest, res: Response, next: Ne
       genres: data.genres || [],
       verified: false, // Artists start unverified
       ownerOxyUserId: userId,
-      dominantColor,
+      primaryColor: colors?.primaryColor,
+      secondaryColor: colors?.secondaryColor,
       stats: {
         followers: 0,
         albums: 0,
@@ -271,7 +291,7 @@ export const registerAsArtist = async (req: AuthRequest, res: Response, next: Ne
 
     await artist.save();
 
-    const formattedArtist = toApiFormat(artist);
+    const formattedArtist = formatArtistWithImage(artist);
     res.status(201).json(formattedArtist);
   } catch (error: any) {
     if (error.code === 11000) {
@@ -306,7 +326,7 @@ export const getMyArtistProfile = async (req: AuthRequest, res: Response, next: 
       });
     }
 
-    const formattedArtist = toApiFormat(artist);
+    const formattedArtist = formatArtistWithImage(artist);
     res.json(formattedArtist);
   } catch (error) {
     next(error);
@@ -337,9 +357,13 @@ export const getArtistDashboard = async (req: AuthRequest, res: Response, next: 
     const artistId = artist._id.toString();
 
     // Get tracks and albums
-    const [tracks, albums] = await Promise.all([
+    const [tracks, albums, copyrightRemovedTracks] = await Promise.all([
       TrackModel.find({ artistId }).sort({ createdAt: -1 }).limit(10).lean(),
       AlbumModel.find({ artistId }).sort({ createdAt: -1 }).limit(10).lean(),
+      TrackModel.find({ artistId, copyrightRemoved: true })
+        .sort({ removedAt: -1 })
+        .limit(20)
+        .lean(),
     ]);
 
     // Get counts
@@ -351,11 +375,13 @@ export const getArtistDashboard = async (req: AuthRequest, res: Response, next: 
     const totalPlays = tracks.reduce((sum, track) => sum + (track.playCount || 0), 0);
 
     const dashboard: ArtistDashboard = {
-      artist: toApiFormat(artist),
+      artist: formatArtistWithImage(artist),
       totalTracks,
       totalAlbums,
       totalPlays,
       followers: artist.stats.followers || 0,
+      strikeCount: artist.strikeCount || 0,
+      uploadsDisabled: artist.uploadsDisabled || false,
       recentTracks: tracks.map(track => ({
         id: track._id.toString(),
         title: track.title,
@@ -367,6 +393,12 @@ export const getArtistDashboard = async (req: AuthRequest, res: Response, next: 
         title: album.title,
         createdAt: album.createdAt?.toISOString() || new Date().toISOString(),
         totalTracks: album.totalTracks || 0,
+      })),
+      copyrightRemovedTracks: copyrightRemovedTracks.map(track => ({
+        id: track._id.toString(),
+        title: track.title,
+        removedAt: track.removedAt?.toISOString() || new Date().toISOString(),
+        removedReason: track.removedReason,
       })),
     };
 
