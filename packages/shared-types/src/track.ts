@@ -89,3 +89,16 @@ export interface UpdateTrackRequest {
   isAvailable?: boolean;
 }
 
+/**
+ * Upload track request (for file uploads)
+ */
+export interface UploadTrackRequest {
+  title: string;
+  artistId: string;
+  albumId?: string;
+  coverArt?: string;
+  genre?: string[];
+  isExplicit?: boolean;
+  // Audio file will be sent as multipart/form-data
+}
+

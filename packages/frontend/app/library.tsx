@@ -46,6 +46,9 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
   const router = useRouter();
   const { isAuthenticated } = useOxy();
 
+  // Filter state
+  const [activeFilter, setActiveFilter] = useState<'Playlists' | 'Artists' | 'Albums' | 'All'>('All');
+
   // Use props if provided (sidebar mode), otherwise use local state (standalone mode)
   const isUsingProps = propsPlaylists !== undefined;
   
@@ -185,28 +188,42 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
 
         {/* Filters */}
         <View style={styles.filters}>
-          {['Playlists', 'Artists', 'Albums'].map((filter) => (
-            <Pressable 
-              key={filter}
-              style={[
-                styles.filterButton,
-                { backgroundColor: theme.colors.backgroundSecondary }
-              ]}
-            >
-              <Text style={[styles.filterText, { color: theme.colors.text }]}>{filter}</Text>
-            </Pressable>
-          ))}
+          {['All', 'Playlists', 'Artists', 'Albums'].map((filter) => {
+            const isActive = activeFilter === filter;
+            return (
+              <Pressable 
+                key={filter}
+                onPress={() => setActiveFilter(filter as 'Playlists' | 'Artists' | 'Albums' | 'All')}
+                style={[
+                  styles.filterButton,
+                  { 
+                    backgroundColor: isActive ? theme.colors.primary : theme.colors.backgroundSecondary 
+                  }
+                ]}
+              >
+                <Text style={[
+                  styles.filterText, 
+                  { 
+                    color: isActive ? '#FFFFFF' : theme.colors.text,
+                    fontWeight: isActive ? '700' : '600'
+                  }
+                ]}>
+                  {filter}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {/* Liked Songs */}
-        {isAuthenticated && (
+        {/* Liked Songs - show only when All or Playlists filter is active */}
+        {isAuthenticated && (activeFilter === 'All' || activeFilter === 'Playlists') && (
           <Pressable 
             style={[styles.libraryItem, { backgroundColor: theme.colors.backgroundSecondary }]}
             onPress={() => router.push('/library/liked')}
           >
-          <View style={[styles.likedIcon, { backgroundColor: '#450af5' }]}>
-            <Ionicons name="heart" size={24} color="#FFFFFF" />
-          </View>
+            <View style={[styles.likedIcon, { backgroundColor: '#450af5' }]}>
+              <Ionicons name="heart" size={24} color="#FFFFFF" />
+            </View>
             <View style={styles.itemContent}>
               <Text style={[styles.itemTitle, { color: theme.colors.text }]}>Liked Songs</Text>
               <Text style={[styles.itemSubtitle, { color: theme.colors.textSecondary }]}>
@@ -242,7 +259,7 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
         )}
 
         {/* Playlists list */}
-        {!finalLoading && !finalError && finalPlaylists.length > 0 && (
+        {!finalLoading && !finalError && finalPlaylists.length > 0 && (activeFilter === 'All' || activeFilter === 'Playlists') && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Playlists</Text>
             <View style={styles.itemsContainer}>
@@ -282,7 +299,7 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
         )}
 
         {/* Artists list */}
-        {!finalLoading && !finalError && finalFollowedArtists.length > 0 && (
+        {!finalLoading && !finalError && finalFollowedArtists.length > 0 && (activeFilter === 'All' || activeFilter === 'Artists') && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Artists</Text>
             <View style={styles.itemsContainer}>
@@ -322,7 +339,7 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
         )}
 
         {/* Albums list */}
-        {!finalLoading && !finalError && finalSavedAlbums.length > 0 && (
+        {!finalLoading && !finalError && finalSavedAlbums.length > 0 && (activeFilter === 'All' || activeFilter === 'Albums') && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Albums</Text>
             <View style={styles.itemsContainer}>
@@ -361,8 +378,13 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
           </View>
         )}
 
-        {/* Empty state - show only if all sections are empty */}
-        {!finalLoading && !finalError && finalPlaylists.length === 0 && finalFollowedArtists.length === 0 && finalSavedAlbums.length === 0 && isAuthenticated && (
+        {/* Empty state - show based on active filter */}
+        {!finalLoading && !finalError && isAuthenticated && (
+          (activeFilter === 'All' && finalPlaylists.length === 0 && finalFollowedArtists.length === 0 && finalSavedAlbums.length === 0) ||
+          (activeFilter === 'Playlists' && finalPlaylists.length === 0) ||
+          (activeFilter === 'Artists' && finalFollowedArtists.length === 0) ||
+          (activeFilter === 'Albums' && finalSavedAlbums.length === 0)
+        ) && (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons
               name="playlist-music"
@@ -371,14 +393,19 @@ const LibraryScreen: React.FC<LibraryScreenProps> = ({
               style={styles.emptyIcon}
             />
             <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-              Your library is empty
+              {activeFilter === 'All' && 'Your library is empty'}
+              {activeFilter === 'Playlists' && 'No playlists yet'}
+              {activeFilter === 'Artists' && 'No followed artists yet'}
+              {activeFilter === 'Albums' && 'No saved albums yet'}
             </Text>
-            <Pressable
-              onPress={() => router.push('/create-playlist')}
-              style={[styles.emptyCreateButton, { backgroundColor: theme.colors.primary }]}
-            >
-              <Text style={styles.emptyCreateButtonText}>Create your first playlist</Text>
-            </Pressable>
+            {activeFilter === 'Playlists' && (
+              <Pressable
+                onPress={() => router.push('/create-playlist')}
+                style={[styles.emptyCreateButton, { backgroundColor: theme.colors.primary }]}
+              >
+                <Text style={styles.emptyCreateButtonText}>Create your first playlist</Text>
+              </Pressable>
+            )}
           </View>
         )}
 

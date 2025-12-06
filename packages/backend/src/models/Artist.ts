@@ -21,6 +21,7 @@ const ArtistSchema = new Schema<IArtist>({
   verified: { type: Boolean, default: false, index: true },
   popularity: { type: Number, default: 0, min: 0, max: 100 },
   dominantColor: { type: String },
+  ownerOxyUserId: { type: String, index: true }, // Link artist to user
   stats: { type: ArtistStatsSchema, default: () => ({
     followers: 0,
     albums: 0,
@@ -37,6 +38,7 @@ ArtistSchema.index({ name: 'text' }); // Text search
 ArtistSchema.index({ popularity: -1 });
 ArtistSchema.index({ 'stats.followers': -1 });
 ArtistSchema.index({ verified: 1, popularity: -1 });
+ArtistSchema.index({ ownerOxyUserId: 1 }); // Index for user-artist queries
 
 export const ArtistModel = mongoose.model<IArtist>('Artist', ArtistSchema);
 

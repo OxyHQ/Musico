@@ -28,6 +28,7 @@ export interface Artist extends Timestamps {
   verified?: boolean;
   popularity?: number; // 0-100
   dominantColor?: string; // Hex color extracted from image (e.g., "#FF5733")
+  ownerOxyUserId?: string; // User who owns this artist profile
   stats: ArtistStats;
 }
 
@@ -69,5 +70,43 @@ export interface FollowArtistRequest {
 
 export interface UnfollowArtistRequest {
   artistId: string;
+}
+
+/**
+ * Artist insights/analytics
+ */
+export interface ArtistInsights {
+  totalPlays: number;
+  monthlyListeners: number;
+  followers: number;
+  topTracks: Array<{
+    trackId: string;
+    title: string;
+    playCount: number;
+  }>;
+  period?: '7days' | '30days' | 'alltime';
+}
+
+/**
+ * Artist dashboard data
+ */
+export interface ArtistDashboard {
+  artist: Artist;
+  totalTracks: number;
+  totalAlbums: number;
+  totalPlays: number;
+  followers: number;
+  recentTracks: Array<{
+    id: string;
+    title: string;
+    createdAt: string;
+    playCount: number;
+  }>;
+  recentAlbums: Array<{
+    id: string;
+    title: string;
+    createdAt: string;
+    totalTracks: number;
+  }>;
 }
 
